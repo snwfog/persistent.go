@@ -1,1 +1,2 @@
 go test -race -count=1 -run=ParallelAppend1 -v ./persistent
+go test -race -count=1 -run=XXX -bench=ParallelRead -benchmem -v ./persistent
