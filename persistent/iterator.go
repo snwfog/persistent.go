@@ -1,10 +1,8 @@
 package persistent
 
 // region Iterator
-// WARN: NOT CONCURRENT SAFE!!
 type iterator struct {
   curr *node
-  pos  int
   list *LinkedList
 }
 
@@ -16,7 +14,11 @@ func NewIterator(list *LinkedList) *iterator {
 }
 
 func (it *iterator) Next() (*node, bool) {
-  if it.pos >= it.list.Len() {
+  if it.curr == it.list.Head() {
+    it.curr = it.curr.Next()
+  }
+
+  if it.curr == it.list.Tail() {
     return nil, false
   }
 
@@ -25,7 +27,6 @@ func (it *iterator) Next() (*node, bool) {
   }
 
   n := it.curr
-  it.pos = it.pos + 1
   it.curr = it.curr.Next()
 
   return n, true
@@ -34,9 +35,25 @@ func (it *iterator) Next() (*node, bool) {
 // endregion
 
 // region CyclicIterator
-// type cyclicIterator struct {
-//   it *iterator
-// }
-//
-// func NewCyclicIterator
+type cyclicIterator struct {
+  iterator
+}
+
+func NewCyclicIterator(list *LinkedList) *cyclicIterator {
+  return &cyclicIterator{
+    *NewIterator(list),
+  }
+}
+
+func (it *cyclicIterator) Next() (*node, bool) {
+  node, ok := it.iterator.Next()
+
+  if !ok {
+    it.curr = it.list.Head()
+    return it.Next()
+  }
+
+  return node, ok
+}
+
 // endregion

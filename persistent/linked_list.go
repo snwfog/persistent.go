@@ -9,7 +9,7 @@ import (
 
 var (
   inserterr = errors.New("insert failed")
-  deleteerr = errors.New("delete failed")
+  // deleteerr = errors.New("delete failed")
 )
 
 func NewLinkedList() *LinkedList {
@@ -171,10 +171,11 @@ func (l *LinkedList) Contains(n *node) bool {
 }
 
 func (l *LinkedList) Iterator() *iterator {
-  return &iterator{
-    list: l,
-    curr: l.Head(),
-  }
+  return NewIterator(l)
+}
+
+func (l *LinkedList) CyclicIterator() *cyclicIterator {
+  return NewCyclicIterator(l)
 }
 
 // endregion

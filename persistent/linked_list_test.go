@@ -1,10 +1,12 @@
 package persistent
 
 import (
+  "math/rand"
   "runtime"
   "sync"
   "sync/atomic"
   "testing"
+  "time"
 
   "github.com/stretchr/testify/assert"
 )
@@ -43,7 +45,7 @@ func TestInsert1(t *testing.T) {
   assert.Equal(t, 2, dll.Len())
 }
 
-func TestAppend1(t *testing.T) {
+func TestInsert2(t *testing.T) {
   dll := NewLinkedList()
   n1, n2, n3 := NewNode(1), NewNode(2), NewNode(3)
 
@@ -58,10 +60,14 @@ func TestAppend1(t *testing.T) {
   assert.Equal(t, 3, dll.Head().Next().Next().Next().value)
 }
 
-func TestParallelAppend1(t *testing.T) {
+func TestConcurrentInsert1(t *testing.T) {
   dll := NewLinkedList()
   p := runtime.NumCPU()
-  n := 1 << 2
+  n := 1 << 16
+  nodes := make([]*node, 0, n)
+  for i := 0; i < n; i++ {
+    nodes = append(nodes, NewNode(i))
+  }
 
   wg := sync.WaitGroup{}
   wg.Add(p)
@@ -69,7 +75,7 @@ func TestParallelAppend1(t *testing.T) {
   for i := 0; i < p; i += 1 {
     go func() {
       for j := 0; j < n; j++ {
-        _, _ = dll.Insert(NewNode(j))
+        _, _ = dll.Insert(nodes[j])
       }
       wg.Done()
     }()
@@ -84,42 +90,66 @@ func TestParallelAppend1(t *testing.T) {
 
   for n := dll.Head().Next(); n != dll.Tail(); n = n.Next() {
     s += n.value
-    t.Log(n.value)
+    // t.Log(n.value)
     assert.NotNil(t, n)
   }
 
   assert.Equal(t, count, s)
 }
 
-func TestParallelAppend2(t *testing.T) {
+// var m map[int]bool
+//
+// func TestParallelMapInsert1(t *testing.T) {
+//   m = make(map[int]bool)
+//   mu := sync.Mutex{}
+//   p := runtime.NumCPU()
+//   n := 1 << 10
+//
+//   wg := sync.WaitGroup{}
+//   wg.Add(p)
+//
+//   for i := 0; i < p; i += 1 {
+//     go func() {
+//       for j := 0; j < n; j++ {
+//         mu.Lock()
+//         m[j] = true
+//         mu.Unlock()
+//       }
+//       wg.Done()
+//     }()
+//   }
+//
+//   wg.Wait()
+//   assert.Equal(t, n, len(m))
+//
+//   t.Logf("%v", m)
+// }
+
+func TestConcurrentInsertDelete1(t *testing.T) {
   dll := NewLinkedList()
-  n := 1 << 12
+  n := 1 << 16
+  workChan := make(chan int)
 
   wg := sync.WaitGroup{}
-  wg.Add(2)
+  wg.Add(1)
 
   go func() {
     for j := 0; j < n; j++ {
       node := NewNode(j)
-      for ok, _ := dll.Insert(node); !ok; ok, _ = dll.Insert(node) {
-        // Tail.Log("not ok")
-        // if ok, _ := dll.Insert(NewNode(1)); ok {
-        // 	break
-        // }
+      _, _ = dll.Insert(node)
+
+      if j%2 == 0 {
+        workChan <- j
       }
     }
 
-    wg.Done()
+    close(workChan)
   }()
 
-  skipped := make([]*node, 0)
   go func() {
-    for i := 0; i < n; i++ {
+    for i := range workChan {
       node := NewNode(i)
-      if _, err := dll.Delete(node); err != nil {
-        // Tail.Logf("skipped")
-        skipped = append(skipped, node)
-      }
+      _, _ = dll.Delete(node)
     }
 
     wg.Done()
@@ -127,16 +157,11 @@ func TestParallelAppend2(t *testing.T) {
 
   wg.Wait()
 
-  assert.Equal(t, len(skipped), dll.Len())
-
-  // it := dll.Iterator()
-  // for node, ok := it.Next(); ok; node, ok = it.Next() {
-  // Tail.Logf("%d, %d", node.value, node.key)
-  // }
+  assert.Equal(t, n>>1, dll.Len())
 }
 
-func TestParallelAppend3(t *testing.T) {
-  n := 1 << 15
+func TestParallelInsert3(t *testing.T) {
+  n := 1 << 17
   workChan := make(chan int)
   dll := NewLinkedList()
 
@@ -146,10 +171,8 @@ func TestParallelAppend3(t *testing.T) {
   go func() {
     for i := 0; i < n; i++ {
       node := NewNode(i)
-      for ok, _ := dll.Insert(node); !ok; ok, _ = dll.Insert(node) {
-      }
+      _, _ = dll.Insert(node)
 
-      // Tail.Logf("[producer] added %d", i)
       if i%2 == 0 {
         workChan <- i
       }
@@ -160,26 +183,16 @@ func TestParallelAppend3(t *testing.T) {
 
   go func() {
     for i := range workChan {
-      // Tail.Logf("[consumer][1] removing %d", i)
       node := NewNode(i)
-      if _, err := dll.Delete(node); err == nil {
-        // Tail.Logf("[consumer][1] removed %d", node)
-      } else {
-        // Tail.Logf("[consumer][1] not found %d", node)
-      }
+      _, _ = dll.Delete(node)
     }
     wg.Done()
   }()
 
   go func() {
     for i := range workChan {
-      // Tail.Logf("[consumer][2] removing %d", i)
       node := NewNode(i)
-      if _, err := dll.Delete(node); err == nil {
-        // Tail.Logf("[consumer][2] removed %d", node)
-      } else {
-        // Tail.Logf("[consumer][2] not found %d", node)
-      }
+      _, _ = dll.Delete(node)
     }
     wg.Done()
   }()
@@ -194,7 +207,7 @@ func TestParallelAppend3(t *testing.T) {
   // }
 }
 
-func TestParallelAppend4(t *testing.T) {
+func TestParallelInsert4(t *testing.T) {
   n := 32
   workChan1, workChan2 := make(chan int), make(chan int)
   dll := NewLinkedList()
@@ -470,7 +483,7 @@ func TestIterator(t *testing.T) {
   assert.Nil(t, node)
 }
 
-func BenchmarkAppend(b *testing.B) {
+func BenchmarkInsert(b *testing.B) {
   dll := NewLinkedList()
   for i := 0; i < b.N; i += 1 {
     _, _ = dll.Insert(NewNode(i))
@@ -478,7 +491,7 @@ func BenchmarkAppend(b *testing.B) {
   }
 }
 
-func BenchmarkParallelAppend(b *testing.B) {
+func BenchmarkParallelInsert(b *testing.B) {
   n := 1
   dll := NewLinkedList()
   b.RunParallel(func(pb *testing.PB) {
@@ -538,12 +551,12 @@ func BenchmarkParallelUpdate(b *testing.B) {
   })
 }
 
-type AtomicMap map[string]bool
+type AtomicMap map[int]bool
 
 func BenchmarkMapParallelRead(b *testing.B) {
   threadsCount := 10000
   readN := 1000
-  sharedMap := AtomicMap{"A": true}
+  sharedMap := AtomicMap{1: true}
   mapAccess := atomic.Value{}
   mapAccess.Store(sharedMap)
   b.SetParallelism(threadsCount)
@@ -551,7 +564,7 @@ func BenchmarkMapParallelRead(b *testing.B) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
         m := mapAccess.Load().(AtomicMap)
-        setThisForBenchmark = m["A"]
+        setThisForBenchmark = m[1]
       }
     }
   })
@@ -573,3 +586,150 @@ func BenchmarkMapParallelRead(b *testing.B) {
 //     }
 //   })
 // }
+
+func BenchmarkParallelInsert_1(b *testing.B)  { parallelInsert(b, 1<<1) }
+func BenchmarkParallelInsert_10(b *testing.B) { parallelInsert(b, 1<<10) }
+func BenchmarkParallelInsert_11(b *testing.B) { parallelInsert(b, 1<<11) }
+func BenchmarkParallelInsert_12(b *testing.B) { parallelInsert(b, 1<<12) }
+func BenchmarkParallelInsert_13(b *testing.B) { parallelInsert(b, 1<<13) }
+
+func parallelInsert(b *testing.B, nodeCount int) {
+  // b.Logf("%d", nodeCount)
+  dll := NewLinkedList()
+  threadsCount := 10000
+  // p := runtime.NumCPU()
+  // n := b.N
+  nodes := make([]*node, 0, nodeCount)
+  for i := 0; i < nodeCount; i++ {
+    nodes = append(nodes, NewNode(i))
+  }
+
+  // node := NewNode(rand.Int())
+  b.SetParallelism(threadsCount)
+  b.ResetTimer()
+  b.RunParallel(func(pb *testing.PB) {
+    for pb.Next() {
+      for i := 0; i < nodeCount; i++ {
+        _, _ = dll.Insert(nodes[i])
+      }
+    }
+  })
+}
+
+func BenchmarkMapParallelInsert_1(b *testing.B)  { mapParallelInsert(b, 1<<1) }
+func BenchmarkMapParallelInsert_10(b *testing.B) { mapParallelInsert(b, 1<<10) }
+func BenchmarkMapParallelInsert_11(b *testing.B) { mapParallelInsert(b, 1<<11) }
+func BenchmarkMapParallelInsert_12(b *testing.B) { mapParallelInsert(b, 1<<12) }
+func BenchmarkMapParallelInsert_13(b *testing.B) { mapParallelInsert(b, 1<<13) }
+
+func mapParallelInsert(b *testing.B, nodeCount int) {
+  threadsCount := 10000
+  mu := sync.Mutex{}
+  sharedMap := AtomicMap{}
+  b.SetParallelism(threadsCount)
+  b.RunParallel(func(pb *testing.PB) {
+    for pb.Next() {
+      for i := 0; i < nodeCount; i++ {
+        mu.Lock()
+        sharedMap[i] = true
+        mu.Unlock()
+      }
+    }
+  })
+}
+
+func BenchmarkParallelTake(b *testing.B) {
+  threadsCount := 10000
+  dll := NewLinkedList()
+
+  // Insert some nodes
+  n := 1 << 10
+  for i := 0; i < n; i++ {
+    _, _ = dll.Insert(NewNode(i))
+  }
+
+  producers := 2
+  doneChan := make(chan struct{})
+  for i := 0; i < producers; i++ {
+    go func() {
+      interval := time.NewTicker(1 * time.Microsecond)
+    L:
+      for {
+        select {
+        case <-interval.C:
+          _, _ = dll.Insert(NewNode(rand.Int()))
+        case <-doneChan:
+          break L
+        }
+      }
+    }()
+  }
+
+  cit := dll.CyclicIterator()
+  b.ResetTimer()
+
+  take := 10
+  b.SetParallelism(threadsCount)
+  b.RunParallel(func(pb *testing.PB) {
+    for pb.Next() {
+      for i := 0; i < take; i++ {
+        _, _ = cit.Next()
+      }
+    }
+  })
+
+  close(doneChan)
+}
+
+var m AtomicMap
+var val int
+
+func BenchmarkMapParallelTake(b *testing.B) {
+  threadsCount := 10000
+  m = AtomicMap{}
+  mu := sync.Mutex{}
+
+  // Insert some nodes
+  n := 1 << 10
+  for i := 0; i < n; i++ {
+    m[i] = true
+  }
+
+  producers := 2
+  doneChan := make(chan struct{})
+  for i := 0; i < producers; i++ {
+    go func() {
+      interval := time.NewTicker(1 * time.Microsecond)
+    L:
+      for {
+        select {
+        case <-interval.C:
+          mu.Lock()
+          m[rand.Int()] = true
+          mu.Unlock()
+        case <-doneChan:
+          break L
+        }
+      }
+    }()
+  }
+
+  b.ResetTimer()
+
+  take := 10
+  b.SetParallelism(threadsCount)
+  b.RunParallel(func(pb *testing.PB) {
+    for pb.Next() {
+      for i := 0; i < take; i++ {
+        mu.Lock()
+        for key := range m {
+          val = key
+          break
+        }
+        mu.Unlock()
+      }
+    }
+  })
+
+  close(doneChan)
+}
