@@ -17,12 +17,18 @@ func NewLinkedList() *LinkedList {
   // g := &node{}
   // g.next = unsafe.Pointer(g)
   // g.prev = unsafe.Pointer(g)
-  return &LinkedList{}
+  head := &sentinel{}
+  tail := &sentinel{}
+  head.next = tail
+  return &LinkedList{
+    head: head,
+    tail: tail,
+  }
 }
 
 type LinkedList struct {
   head unsafe.Pointer
-  // tail unsafe.Pointer
+  tail unsafe.Pointer
 
   len int32
 }
@@ -33,6 +39,10 @@ func (l *LinkedList) Len() int {
 
 func (l *LinkedList) Head() *node {
   return (*node)(atomic.LoadPointer(&l.head))
+}
+
+func (l *LinkedList) Tail() *node {
+  return (*node)(atomic.LoadPointer(&l.tail))
 }
 
 func (l *LinkedList) TailN() *node {
@@ -52,11 +62,24 @@ func (l *LinkedList) TailN() *node {
   return prev
 }
 
+func (l *LinkedList) h() *node {
+  return (*node)(atomic.LoadPointer(&l.head))
+}
+
+func (l *LinkedList) t() *node {
+  return (*node)(atomic.LoadPointer(&l.tail))
+}
+
 type node struct {
-  key   uint64
-  value int
-  next  unsafe.Pointer
-  prev  unsafe.Pointer
+  key     uint64
+  value   int
+  deleted int32
+  next    unsafe.Pointer
+  // prev  unsafe.Pointer
+}
+
+type sentinel struct {
+  node
 }
 
 func NewNode(id int) *node {
@@ -194,6 +217,45 @@ func (l *LinkedList) find(head *node, key uint64) (prev, dest *node, ok bool) {
     }
   }
   return nil, nil, false
+}
+
+func (n *node) marked() bool {
+  return atomic.LoadInt32(&n.deleted) == 1
+}
+
+func (l *LinkedList) search(key uint64) (left, right *node) {
+  var leftnext *node
+
+  for {
+    prev := l.h()
+    curr := prev.Next()
+
+    for {
+      if !curr.marked() {
+        left = prev
+        leftnext = curr
+      }
+
+      prev = curr
+      if prev == l.Tail() {
+        break
+      }
+
+      curr = curr.Next()
+      if !curr.marked() && prev.key >= key {
+        break
+      }
+    }
+
+    right = curr
+    if leftnext == right {
+      
+    }
+  }
+}
+
+func marked(n *node) bool {
+  return atomic.LoadInt32(&n.deleted) == 1
 }
 
 func (l *LinkedList) Contains(n *node) bool {
