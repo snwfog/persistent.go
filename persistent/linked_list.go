@@ -26,6 +26,41 @@ func NewLinkedList() *LinkedList {
   }
 }
 
+// region Node
+func NewNode(id int) *node {
+  return &node{
+    value: id,
+    key:   getKeyHash(id),
+  }
+}
+
+type node struct {
+  key     uint64
+  value   int
+  deleted int32
+  next    unsafe.Pointer
+  // prev  unsafe.Pointer
+}
+
+func (n *node) Next() *node {
+  return (*node)(atomic.LoadPointer(&n.next))
+}
+
+// func (n *node) Prev() *node {
+//   return (*node)(atomic.LoadPointer(&n.prev))
+// }
+
+func (n *node) marked() bool {
+  return atomic.LoadInt32(&n.deleted) == 1
+}
+
+type sentinel struct {
+  node
+}
+
+// endregion
+
+// region LinkedList
 type LinkedList struct {
   head unsafe.Pointer
   tail unsafe.Pointer
@@ -70,32 +105,6 @@ func (l *LinkedList) t() *node {
   return (*node)(atomic.LoadPointer(&l.tail))
 }
 
-type node struct {
-  key     uint64
-  value   int
-  deleted int32
-  next    unsafe.Pointer
-  // prev  unsafe.Pointer
-}
-
-type sentinel struct {
-  node
-}
-
-func NewNode(id int) *node {
-  return &node{
-    value: id,
-    key:   getKeyHash(id),
-  }
-}
-
-func (n *node) Next() *node {
-  return (*node)(atomic.LoadPointer(&n.next))
-}
-
-// func (n *node) Prev() *node {
-//   return (*node)(atomic.LoadPointer(&n.prev))
-// }
 
 func (l *LinkedList) Prepend(el *node) (bool, error) {
   head := l.Head()
@@ -219,10 +228,6 @@ func (l *LinkedList) find(head *node, key uint64) (prev, dest *node, ok bool) {
   return nil, nil, false
 }
 
-func (n *node) marked() bool {
-  return atomic.LoadInt32(&n.deleted) == 1
-}
-
 func (l *LinkedList) search(key uint64) (left, right *node) {
   var leftnext *node
 
@@ -249,13 +254,21 @@ func (l *LinkedList) search(key uint64) (left, right *node) {
 
     right = curr
     if leftnext == right {
-      
+      if right != l.Tail() && right.Next().marked() {
+        continue
+      }
+
+      return left, right
+    }
+
+    if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(leftnext), right) {
+      if right != l.Tail() && right.Next().marked() {
+        continue
+      }
+
+      return left, right
     }
   }
-}
-
-func marked(n *node) bool {
-  return atomic.LoadInt32(&n.deleted) == 1
 }
 
 func (l *LinkedList) Contains(n *node) bool {
@@ -321,49 +334,5 @@ func deleteAt(dest, prev *node) bool {
   return true
 }
 
-func use(params ...interface{}) {
-  for _, val := range params {
-    _ = val
-  }
-}
-
-// region Iterator
-// WARN: NOT CONCURRENT SAFE!!
-type iterator struct {
-  curr *node
-  pos  int
-  list *LinkedList
-}
-
-func NewIterator(list *LinkedList) *iterator {
-  return &iterator{
-    list: list,
-    curr: list.Head(),
-  }
-}
-
-func (it *iterator) Next() (*node, bool) {
-  if it.pos >= it.list.Len() {
-    return nil, false
-  }
-
-  if it.curr == nil {
-    return it.curr, false
-  }
-
-  n := it.curr
-  it.pos = it.pos + 1
-  it.curr = it.curr.Next()
-
-  return n, true
-}
-
 // endregion
 
-// region CyclicIterator
-// type cyclicIterator struct {
-//   it *iterator
-// }
-//
-// func NewCyclicIterator
-// endregion

@@ -70,3 +70,9 @@ func getUintptrHash(num uintptr) uint64 {
   buf := *(*[]byte)(unsafe.Pointer(&bh))
   return siphash.Hash(sipHashKey1, sipHashKey2, buf)
 }
+
+func use(params ...interface{}) {
+  for _, val := range params {
+    _ = val
+  }
+}
