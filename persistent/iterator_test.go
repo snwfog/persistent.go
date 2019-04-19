@@ -25,6 +25,28 @@ func TestIterator1(t *testing.T) {
   assert.True(t, ok)
 }
 
+func TestIterator2(t *testing.T) {
+  dll := NewLinkedList()
+  _, _ = dll.Insert(NewNode(1))
+  _, _ = dll.Insert(NewNode(2))
+  _, _ = dll.Insert(NewNode(3))
+
+  it := dll.Iterator()
+
+  for i := 0; i < 3; i++ {
+    _, ok := it.Next()
+    assert.True(t, ok)
+  }
+
+  node, ok := it.Next()
+  assert.False(t, ok)
+  assert.Nil(t, node)
+
+  node, ok = it.Next()
+  assert.False(t, ok)
+  assert.Nil(t, node)
+}
+
 func TestCyclicIterator(t *testing.T) {
   dll := NewLinkedList()
 

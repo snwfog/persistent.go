@@ -160,18 +160,16 @@ func TestConcurrentInsertDelete1(t *testing.T) {
   assert.Equal(t, n>>1, dll.Len())
 }
 
-func TestParallelInsert3(t *testing.T) {
-  n := 1 << 17
+func TestParallelInsertDelete2(t *testing.T) {
+  n := 1 << 10
   workChan := make(chan int)
+  doneChan := make(chan int)
   dll := NewLinkedList()
 
-  // Producer
-  wg := sync.WaitGroup{}
-  wg.Add(2)
+  // Producers
   go func() {
     for i := 0; i < n; i++ {
-      node := NewNode(i)
-      _, _ = dll.Insert(node)
+      _, _ = dll.Insert(NewNode(i))
 
       if i%2 == 0 {
         workChan <- i
@@ -183,305 +181,106 @@ func TestParallelInsert3(t *testing.T) {
 
   go func() {
     for i := range workChan {
-      node := NewNode(i)
-      _, _ = dll.Delete(node)
+      _, _ = dll.Delete(NewNode(i))
     }
-    wg.Done()
+
+    doneChan <- 1
   }()
 
   go func() {
     for i := range workChan {
-      node := NewNode(i)
-      _, _ = dll.Delete(node)
+      _, _ = dll.Delete(NewNode(i))
     }
-    wg.Done()
+
+    doneChan <- 2
   }()
 
-  wg.Wait()
+  <-doneChan
+  <-doneChan
 
   assert.Equal(t, n>>1, dll.Len())
+  it := dll.Iterator()
 
-  // it := dll.Iterator()
-  // for node, ok := it.Next(); ok; node, ok = it.Next() {
-  //   Tail.Logf("node: %d", node.value)
-  // }
+  var sum int
+  for n, ok := it.Next(); ok; n, ok = it.Next() {
+    sum += n.value
+  }
+
+  assert.Equal(t, n*n/4, sum)
+  t.Logf("sum expected %d, actual %d", n*n/4, sum)
 }
 
-func TestParallelInsert4(t *testing.T) {
-  n := 32
-  workChan1, workChan2 := make(chan int), make(chan int)
+func TestParallelInsertDelete3(t *testing.T) {
+  n := 1 << 10
+  workChan := make(chan int)
+  doneChan := make(chan int)
   dll := NewLinkedList()
 
-  // Producer
-  wg := sync.WaitGroup{}
-  wg.Add(2)
+  // Producers
   go func() {
     for i := 0; i < n; i++ {
-      for ok, _ := dll.Insert(NewNode(i)); !ok; ok, _ = dll.Insert(NewNode(i)) {
-      }
+      _, _ = dll.Insert(NewNode(i))
 
-      t.Logf("[producer] added %d", i)
       if i%2 == 0 {
-        workChan1 <- i
+        workChan <- i
       }
     }
 
-    close(workChan1)
+    close(workChan)
   }()
 
   go func() {
-    for i := 0; i < n; i++ {
-      for ok, _ := dll.Insert(NewNode(i)); !ok; ok, _ = dll.Insert(NewNode(i)) {
-      }
-
-      t.Logf("[producer] added %d", i)
-      if i%2 == 0 {
-        workChan2 <- i
-      }
+    for i := range workChan {
+      _, _ = dll.Delete(NewNode(i))
     }
 
-    close(workChan2)
+    doneChan <- 1
   }()
 
   go func() {
-    for i := range workChan1 {
-      t.Logf("[consumer][1] removing %d", i)
-      if _, err := dll.Delete(NewNode(i)); err == nil {
-        t.Logf("[consumer][1] removed %d", i)
-      } else {
-        t.Logf("[consumer][1] not found %d", i)
-      }
+    for i := range workChan {
+      _, _ = dll.Delete(NewNode(i))
     }
-    wg.Done()
+
+    doneChan <- 2
   }()
 
-  go func() {
-    for i := range workChan2 {
-      t.Logf("[consumer][2] removing %d", i)
-      if _, err := dll.Delete(NewNode(i)); err == nil {
-        t.Logf("[consumer][2] removed %d", i)
-      } else {
-        t.Logf("[consumer][2] not found %d", i)
-      }
-    }
-    wg.Done()
-  }()
-
-  wg.Wait()
+  <-doneChan
+  <-doneChan
 
   assert.Equal(t, n>>1, dll.Len())
-
   it := dll.Iterator()
-  for node, ok := it.Next(); ok; node, ok = it.Next() {
-    t.Logf("node: %d", node.value)
+
+  var sum int
+  for n, ok := it.Next(); ok; n, ok = it.Next() {
+    sum += n.value
   }
+
+  assert.Equal(t, n*n/4, sum)
+  t.Logf("sum expected %d, actual %d", n*n/4, sum)
 }
 
 func TestDelete(t *testing.T) {
   dll := NewLinkedList()
 
-  _, _ = dll.Delete(NewNode(1))
+  ok, err := dll.Delete(NewNode(1))
+  assert.False(t, ok)
+  assert.Nil(t, err)
 
   _, _ = dll.Insert(NewNode(1))
   assert.Equal(t, dll.Len(), 1)
 
-  _, _ = dll.Delete(NewNode(1))
+  ok, err = dll.Delete(NewNode(1))
+  assert.True(t, ok)
+  assert.Nil(t, err)
 
-  assert.Equal(t, dll.Head(), dll.Tail())
+  ok, err = dll.Delete(NewNode(1))
+  assert.False(t, ok)
+  assert.Nil(t, err)
+
   assert.Equal(t, 0, dll.Len())
 }
 
-func TestContains(t *testing.T) {
-  dll := NewLinkedList()
-
-  for j := 0; j < 1000; j++ {
-    node := NewNode(j)
-    _, _ = dll.Insert(node)
-    assert.Equal(t, j+1, dll.Len())
-    assert.True(t, dll.Contains(node))
-  }
-
-  for j := 1000; j > 0; j-- {
-    node := NewNode(j - 1)
-    deleted, err := dll.Delete(node)
-    assert.NotNil(t, deleted)
-    assert.Nil(t, err)
-    assert.Equal(t, j-1, dll.Len())
-    assert.False(t, dll.Contains(node))
-  }
-}
-
-// func TestParallelPrepend3(Tail *testing.T) {
-//   n := 1 << 15
-//   workChan := make(chan int)
-//   errCount := int32(0)
-//   dll := NewLinkedList()
-//
-//   // Producer
-//   wg := sync.WaitGroup{}
-//   wg.Add(2)
-//   go func() {
-//     for i := 0; i < n; i++ {
-//       node := NewNode(i)
-//       for ok, _ := dll.Prepend(node); !ok; ok, _ = dll.Prepend(node) {
-//       }
-//
-//       // Tail.Logf("[producer] added %d", i)
-//       if i%2 == 0 {
-//         workChan <- i
-//       }
-//     }
-//
-//     close(workChan)
-//   }()
-//
-//   // Consumers
-//   go func() {
-//     for i := range workChan {
-//       // Tail.Logf("[consumer][1] removing %d", i)
-//       node := NewNode(i)
-//       if n, _ := dll.Delete(node); n == nil {
-//         atomic.AddInt32(&errCount, 1)
-//       }
-//     }
-//     wg.Done()
-//   }()
-//
-//   go func() {
-//     for i := range workChan {
-//       // Tail.Logf("[consumer][2] removing %d", i)
-//       node := NewNode(i)
-//       if n, _ := dll.Delete(node); n == nil {
-//         atomic.AddInt32(&errCount, 1)
-//       }
-//     }
-//     wg.Done()
-//   }()
-//
-//   wg.Wait()
-//
-//   assert.Equal(Tail, (n>>1)+int(errCount), dll.Len())
-//   Tail.Logf("expected: %d, len: %d", (n>>1)+int(errCount), dll.Len())
-//   // it := dll.Iterator()
-//   // for node, ok := it.Next(); ok; node, ok = it.Next() {
-//   //   Tail.Logf("node: %d", node.value)
-//   // }
-// }
-
-// func TestParallelPrepend4(Tail *testing.T) {
-//   n := 1 << 10
-//   errCount := int32(0)
-//   err := NewLinkedList()
-//   workChan1 := make(chan int)
-//   workChan2 := make(chan int)
-//
-//   dll := NewLinkedList()
-//
-//   // Producers
-//   go func() {
-//     for i := 0; i < n; i++ {
-//       for ok, _ := dll.Prepend(NewNode(i)); !ok; ok, _ = dll.Prepend(NewNode(i)) {
-//       }
-//
-//       // Tail.Logf("[producer] added %d", i)
-//       if i%2 == 0 {
-//         workChan1 <- i
-//       }
-//     }
-//
-//     close(workChan1)
-//   }()
-//
-//   go func() {
-//     for i := 0; i < n; i++ {
-//       for ok, _ := dll.Prepend(NewNode(i)); !ok; ok, _ = dll.Prepend(NewNode(i)) {
-//       }
-//
-//       // Tail.Logf("[producer] added %d", i)
-//       if i%2 == 0 {
-//         workChan2 <- i
-//       }
-//     }
-//
-//     close(workChan2)
-//   }()
-//
-//   wg := sync.WaitGroup{}
-//   wg.Add(2)
-//
-//   // Consumers
-//   go func() {
-//     for i := range workChan1 {
-//       // Tail.Logf("[consumer][1] removing %d", i)
-//       if node, _ := dll.Delete(NewNode(i)); node == nil {
-//         Tail.Logf("[consumer][1] not found %d", i)
-//         _, _ = err.Insert(NewNode(i))
-//         atomic.AddInt32(&errCount, 1)
-//       } else {
-//         // Tail.Logf("[consumer][1] removed %d", i)
-//       }
-//     }
-//     wg.Done()
-//   }()
-//
-//   go func() {
-//     for i := range workChan2 {
-//       // Tail.Logf("[consumer][2] removing %d", i)
-//       if node, _ := dll.Delete(NewNode(i)); node == nil {
-//         Tail.Logf("[consumer][2] not found %d", i)
-//         _, _ = err.Insert(NewNode(i))
-//         atomic.AddInt32(&errCount, 1)
-//       } else {
-//         // Tail.Logf("[consumer][2] removed %d", i)
-//       }
-//     }
-//     wg.Done()
-//   }()
-//
-//   wg.Wait()
-//
-//   assert.Equal(Tail, n+int(errCount), dll.Len())
-//   Tail.Logf("err: %d, len: %d", errCount, dll.Len())
-//
-//   it := dll.Iterator()
-//   total := 0
-//   for node, ok := it.Next(); ok; node, ok = it.Next() {
-//     // Tail.Logf("node: %d", node.value)
-//     total += node.value
-//     if node.value%2 == 0 {
-//       Tail.Logf("node: %d", node.value)
-//     }
-//   }
-//
-//   it2 := err.Iterator()
-//   for node, ok := it2.Next(); ok; node, ok = it2.Next() {
-//     Tail.Logf("err node: %d", node.value)
-//   }
-//
-//   assert.Equal(Tail, (n*n)>>1, total)
-// }
-
-func TestIterator(t *testing.T) {
-  dll := NewLinkedList()
-  _, _ = dll.Insert(NewNode(1))
-  _, _ = dll.Insert(NewNode(2))
-  _, _ = dll.Insert(NewNode(3))
-
-  it := dll.Iterator()
-  for i := 0; i < 3; i++ {
-    node, ok := it.Next()
-    assert.True(t, ok)
-    assert.Equal(t, i+1, node.value)
-  }
-
-  node, ok := it.Next()
-  assert.False(t, ok)
-  assert.Nil(t, node)
-
-  node, ok = it.Next()
-  assert.False(t, ok)
-  assert.Nil(t, node)
-}
 
 func BenchmarkInsert(b *testing.B) {
   dll := NewLinkedList()
@@ -648,7 +447,7 @@ func BenchmarkParallelTake(b *testing.B) {
     _, _ = dll.Insert(NewNode(i))
   }
 
-  producers := 2
+  producers := 5
   doneChan := make(chan struct{})
   for i := 0; i < producers; i++ {
     go func() {
@@ -695,7 +494,7 @@ func BenchmarkMapParallelTake(b *testing.B) {
     m[i] = true
   }
 
-  producers := 2
+  producers := 5
   doneChan := make(chan struct{})
   for i := 0; i < producers; i++ {
     go func() {
