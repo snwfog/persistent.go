@@ -10,12 +10,12 @@ import (
 var (
   inserterr = errors.New("insert failed")
   // deleteerr = errors.New("delete failed")
-  freenode = unsafe.Pointer(new(int))
+  // freenode = unsafe.Pointer(new(int))
 )
 
 func NewLinkedList() *LinkedList {
-  head := &sentinel{node{value: -100, deleted: freenode}}
-  tail := &sentinel{node{value: -1000, deleted: freenode}}
+  head := &sentinel{node{value: -2}}
+  tail := &sentinel{node{value: -1}}
 
   head.next = unsafe.Pointer(tail)
   return &LinkedList{
@@ -27,25 +27,23 @@ func NewLinkedList() *LinkedList {
 // region Node
 func NewNode(id int) *node {
   return &node{
-    value:   id,
-    deleted: freenode,
-    key:     getKeyHash(id),
+    value: id,
+    key:   getKeyHash(id),
   }
 }
 
 type node struct {
-  key     uint64
-  value   int
-  deleted unsafe.Pointer
-  next    unsafe.Pointer
-}
-
-func (n *node) marked() bool {
-  return uintptr(atomic.LoadPointer(&n.deleted)) != uintptr(freenode)
+  key   uint64
+  value int
+  next  unsafe.Pointer // What if GC runs?
 }
 
 func (n *node) Next() *node {
   return (*node)(atomic.LoadPointer(&n.next))
+}
+
+func (n *node) nextptr() unsafe.Pointer {
+  return atomic.LoadPointer(&n.next)
 }
 
 type sentinel struct {
@@ -92,26 +90,27 @@ func (l *LinkedList) Insert(el *node) (bool, error) {
 }
 
 func (l *LinkedList) Delete(el *node) (bool, error) {
-  var right, rightnext, left *node
+  var right *node
+  var rightnext unsafe.Pointer
 
   for {
-    left, right = l.search(el.key)
+    _, right = l.search(el.key)
     if right == l.Tail() || right.key != el.key {
       return false, nil // not deleted cause not found
     }
 
-    rightnext = right.Next()
-    if !right.marked() {
-      if atomic.CompareAndSwapPointer(&right.deleted, freenode, unsafe.Pointer(new(int))) {
+    rightnext = right.nextptr()
+    if !marked(rightnext) {
+      if atomic.CompareAndSwapPointer(&right.next, rightnext, mark(rightnext)) {
         atomic.AddInt32(&l.len, -1)
         break
       }
     }
   }
 
-  if !atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), unsafe.Pointer(rightnext)) {
-    _, _ = l.search(right.key) // cleanup
-  }
+  // if !atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), rightnext) {
+  //   _, _ = l.search(right.key) // cleanup
+  // }
 
   return true, nil
 }
@@ -121,28 +120,28 @@ func (l *LinkedList) search(key uint64) (left, right *node) {
 
   for {
     prev := l.Head()
-    curr := prev.Next()
+    currptr := prev.nextptr()
 
     for {
-      if !prev.marked() {
+      if !marked(currptr) {
         left = prev
-        leftnext = curr
+        leftnext = (*node)(currptr)
       }
 
-      prev = curr
+      prev = (*node)(unmark(currptr))
       if prev == l.Tail() {
         break
       }
 
-      curr = curr.Next()
-      if !prev.marked() && prev.key >= key {
+      currptr = prev.nextptr()
+      if !marked(currptr) && prev.key >= key {
         break
       }
     }
 
     right = prev
     if leftnext == right {
-      if right != l.Tail() && right.marked() {
+      if right != l.Tail() && marked(right.nextptr()) {
         continue
       }
 
@@ -150,7 +149,7 @@ func (l *LinkedList) search(key uint64) (left, right *node) {
     }
 
     if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(leftnext), unsafe.Pointer(right)) {
-      if right != l.Tail() && right.marked() {
+      if right != l.Tail() && marked(right.nextptr()) {
         continue
       }
 
@@ -160,14 +159,12 @@ func (l *LinkedList) search(key uint64) (left, right *node) {
 }
 
 func (l *LinkedList) Contains(n *node) bool {
-  head := l.Head()
-
-  if head == nil {
+  _, right := l.search(n.key)
+  if right == l.Tail() || right.key != n.key {
     return false
   }
 
-  _, right := l.search(n.key)
-  return right != nil
+  return true
 }
 
 func (l *LinkedList) Iterator() *iterator {

@@ -76,3 +76,15 @@ func use(params ...interface{}) {
     _ = val
   }
 }
+
+func marked(ptr unsafe.Pointer) bool {
+  return (uintptr(ptr) & 0x1) > 0
+}
+
+func mark(ptr unsafe.Pointer) unsafe.Pointer {
+  return unsafe.Pointer(uintptr(ptr) | 0x1)
+}
+
+func unmark(ptr unsafe.Pointer) unsafe.Pointer {
+  return unsafe.Pointer(uintptr(ptr) &^ 0x1)
+}

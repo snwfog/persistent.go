@@ -18,18 +18,20 @@ func (it *iterator) Next() (*node, bool) {
     it.curr = it.curr.Next()
   }
 
-  if it.curr == it.list.Tail() {
-    return nil, false
+  for {
+    if it.curr == it.list.Tail() {
+      return nil, false
+    }
+
+    n, nextptr := it.curr, it.curr.nextptr()
+    it.curr = (*node)(unmark(nextptr))
+
+    if marked(nextptr) {
+      continue
+    }
+
+    return n, true
   }
-
-  if it.curr == nil {
-    return it.curr, false
-  }
-
-  n := it.curr
-  it.curr = it.curr.Next()
-
-  return n, true
 }
 
 // endregion
