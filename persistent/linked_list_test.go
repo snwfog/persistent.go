@@ -154,42 +154,46 @@ func TestConcurrentInsertDelete1(t *testing.T) {
   assert.Equal(t, n>>1, dll.Len())
 }
 
-func TestParallelInsertDelete2(t *testing.T) {
+func TestParallelInsertDeleteN1(t *testing.T) {
   n := 1 << 10
-  workChan := make(chan int)
+  pc := 20000
+
+  channel := make(chan int)
+
   doneChan := make(chan int)
   dll := NewLinkedList()
+  wg := sync.WaitGroup{}
+  wg.Add(pc)
 
   // Producers
-  go func() {
-    for i := 0; i < n; i++ {
-      _, _ = dll.Insert(NewNode(i))
-
-      if i%2 == 0 {
-        workChan <- i
+  for i := 0; i < pc; i++ {
+    go func(k int) {
+      for j := 0; j < n; j++ {
+        n := NewNode(j)
+        _, _ = dll.Insert(n)
+        // t.Logf("p[1] %d, hash %d", k, n.key)
+        if j%2 == 0 {
+          channel <- j
+        }
       }
-    }
 
-    close(workChan)
-  }()
+      wg.Done()
+    }(i)
+  }
 
+  // Consumers
   go func() {
-    for i := range workChan {
-      _, _ = dll.Delete(NewNode(i))
+    for j := range channel {
+      n := NewNode(j)
+      _, _ = dll.Delete(n)
+      // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
     }
 
     doneChan <- 1
   }()
 
-  go func() {
-    for i := range workChan {
-      _, _ = dll.Delete(NewNode(i))
-    }
-
-    doneChan <- 2
-  }()
-
-  <-doneChan
+  wg.Wait()
+  close(doneChan)
   <-doneChan
 
   assert.Equal(t, n>>1, dll.Len())
@@ -198,15 +202,80 @@ func TestParallelInsertDelete2(t *testing.T) {
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
     sum += n.value
+    if n.value%2 == 0 {
+      t.Logf("value: %d!", n.value)
+    }
   }
 
   assert.Equal(t, n*n/4, sum)
   t.Logf("sum expected %d, actual %d", n*n/4, sum)
 }
 
-func TestParallelInsertDeleteNN(t *testing.T) {
-  n := 1 << 15
-  pc := 2
+func TestConcurrentInsertDelete1N(t *testing.T) {
+  n := 1 << 10
+  pc := 100
+
+  channels := make([]chan int, 0, pc)
+  for i := 0; i < pc; i++ {
+    channels = append(channels, make(chan int))
+  }
+
+  doneChan := make(chan int)
+  dll := NewLinkedList()
+
+  // Producers
+  go func() {
+    for j := 0; j < n; j++ {
+      n := NewNode(j)
+      _, _ = dll.Insert(n)
+      // t.Logf("p[1] %d, hash %d", k, n.key)
+      if j%2 == 0 {
+        for k := 0; k < pc; k++ {
+          channels[k] <- j
+        }
+      }
+    }
+
+    for k := 0; k < pc; k++ {
+      close(channels[k])
+    }
+  }()
+
+  // Consumers
+  for i := 0; i < pc; i++ {
+    go func(k int) {
+      for j := range channels[k] {
+        n := NewNode(j)
+        _, _ = dll.Delete(n)
+        // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
+      }
+
+      doneChan <- 1
+    }(i)
+  }
+
+  for i := 0; i < pc; i++ {
+    <-doneChan
+  }
+
+  assert.Equal(t, n>>1, dll.Len())
+  it := dll.Iterator()
+
+  var sum int
+  for n, ok := it.Next(); ok; n, ok = it.Next() {
+    sum += n.value
+    if n.value%2 == 0 {
+      t.Logf("value: %d!", n.value)
+    }
+  }
+
+  assert.Equal(t, n*n/4, sum)
+  t.Logf("sum expected %d, actual %d", n*n/4, sum)
+}
+
+func TestConcurrentInsertDeleteNN(t *testing.T) {
+  n := 1 << 10
+  pc := 100
 
   channels := make([]chan int, 0, pc)
   for i := 0; i < pc; i++ {
