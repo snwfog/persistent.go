@@ -2,3 +2,14 @@ persistent.go
 
 - lockfree linked-list
 - lockfree queue (coming)
+
+motivation
+
+- play with golang pointer and unsafe (gasp!)
+- actually need this and benchmark (?), over a map+mutex, sync.map, or load/store
+- other implementation were too hard to understand
+
+caveat
+
+- list is actually a set -> duplicate key not allowed
+- can be modified to store other struct instead of int (see node struct)
