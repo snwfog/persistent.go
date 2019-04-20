@@ -47,7 +47,7 @@ func TestIterator2(t *testing.T) {
   assert.Nil(t, node)
 }
 
-func TestCyclicIterator(t *testing.T) {
+func TestCyclicIterator1(t *testing.T) {
   dll := NewLinkedList()
 
   _, _ = dll.Insert(NewNode(1))
