@@ -64,10 +64,11 @@ func TestConcurrentInsert1(t *testing.T) {
   dll := NewLinkedList()
   p := runtime.NumCPU()
   n := 1 << 16
-  nodes := make([]*node, 0, n)
-  for i := 0; i < n; i++ {
-    nodes = append(nodes, NewNode(i))
-  }
+
+  // nodes := make([]*node, 0, n)
+  // for i := 0; i < n; i++ {
+  //   nodes = append(nodes, NewNode(i))
+  // }
 
   wg := sync.WaitGroup{}
   wg.Add(p)
@@ -75,26 +76,23 @@ func TestConcurrentInsert1(t *testing.T) {
   for i := 0; i < p; i += 1 {
     go func() {
       for j := 0; j < n; j++ {
-        _, _ = dll.Insert(nodes[j])
+        _, _ = dll.Insert(NewNode(j))
       }
       wg.Done()
     }()
   }
 
   wg.Wait()
+
   assert.Equal(t, n, dll.Len())
 
-  s := 0
-  count := (n - 1) * n / 2
-  t.Logf("expected len: %d, actual len: %d", n, dll.Len())
-
-  for n := dll.Head().Next(); n != dll.Tail(); n = n.Next() {
-    s += n.value
-    // t.Log(n.value)
-    assert.NotNil(t, n)
+  it := dll.Iterator()
+  var sum int
+  for n, ok := it.Next(); ok; n, ok = it.Next() {
+    sum += n.value
   }
 
-  assert.Equal(t, count, s)
+  assert.Equal(t, (n-1)*n/2, sum)
 }
 
 // var m map[int]bool
@@ -161,7 +159,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 }
 
 func TestParallelInsertDelete2(t *testing.T) {
-  n := 1 << 10
+  n := 1 << 15
   workChan := make(chan int)
   doneChan := make(chan int)
   dll := NewLinkedList()
@@ -211,35 +209,55 @@ func TestParallelInsertDelete2(t *testing.T) {
 }
 
 func TestParallelInsertDelete3(t *testing.T) {
-  n := 1 << 10
-  workChan := make(chan int)
+  n := 1 << 16
+  workChan1 := make(chan int)
+  workChan2 := make(chan int)
+
   doneChan := make(chan int)
   dll := NewLinkedList()
 
   // Producers
   go func() {
     for i := 0; i < n; i++ {
-      _, _ = dll.Insert(NewNode(i))
-
+      n := NewNode(i)
+      _, _ = dll.Insert(n)
+      // t.Logf("p[1] %d, hash %d", i, n.key)
       if i%2 == 0 {
-        workChan <- i
+        workChan1 <- i
       }
     }
 
-    close(workChan)
+    close(workChan1)
   }()
 
   go func() {
-    for i := range workChan {
-      _, _ = dll.Delete(NewNode(i))
+    for i := 0; i < n; i++ {
+      n := NewNode(i)
+      _, _ = dll.Insert(n)
+      // t.Logf("p[2] %d, hash %d", i, n.key)
+      if i%2 == 0 {
+        workChan2 <- i
+      }
+    }
+
+    close(workChan2)
+  }()
+
+  go func() {
+    for i := range workChan1 {
+      n := NewNode(i)
+      _, _ = dll.Delete(n)
+      // t.Logf("c[1] %d, hash %d", i, n.key)
     }
 
     doneChan <- 1
   }()
 
   go func() {
-    for i := range workChan {
-      _, _ = dll.Delete(NewNode(i))
+    for i := range workChan2 {
+      n := NewNode(i)
+      _, _ = dll.Delete(n)
+      // t.Logf("c[2] %d, hash %d", i, n.key)
     }
 
     doneChan <- 2
@@ -254,6 +272,9 @@ func TestParallelInsertDelete3(t *testing.T) {
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
     sum += n.value
+    if n.value%2 == 0 {
+      t.Logf("bad value: %d!", n.value)
+    }
   }
 
   assert.Equal(t, n*n/4, sum)
@@ -281,44 +302,41 @@ func TestDelete(t *testing.T) {
   assert.Equal(t, 0, dll.Len())
 }
 
-
-func BenchmarkInsert(b *testing.B) {
+func TestConcurrentDelete1(t *testing.T) {
   dll := NewLinkedList()
-  for i := 0; i < b.N; i += 1 {
+  p := runtime.NumCPU()
+  n := 1 << 10
+
+  for i := 0; i < n; i++ {
     _, _ = dll.Insert(NewNode(i))
-    // assert.Equal(Tail, i+1, dll.Len())
   }
-}
 
-func BenchmarkParallelInsert(b *testing.B) {
-  n := 1
-  dll := NewLinkedList()
-  b.RunParallel(func(pb *testing.PB) {
-    for pb.Next() {
+  wg := sync.WaitGroup{}
+  wg.Add(p)
+
+  for i := 0; i < p; i += 1 {
+    go func() {
       for j := 0; j < n; j++ {
-        for ok, _ := dll.Insert(NewNode(j)); !ok; ok, _ = dll.Insert(NewNode(j)) {
-          // Tail.Log("not ok")
-        }
+        _, _ = dll.Delete(NewNode(j))
       }
-    }
-  })
+      wg.Done()
+    }()
+  }
+
+  wg.Wait()
+
+  assert.Equal(t, 0, dll.Len())
+
+  it := dll.Iterator()
+  var sum int
+  for n, ok := it.Next(); ok; n, ok = it.Next() {
+    sum += n.value
+  }
+
+  assert.Equal(t, 0, sum)
 }
 
-// func BenchmarkParallelPrepend(b *testing.B) {
-//   n := 1
-//   dll := NewLinkedList()
-//   b.RunParallel(func(pb *testing.PB) {
-//     for pb.Next() {
-//       for j := 0; j < n; j++ {
-//         for ok, _ := dll.Prepend(NewNode(j)); !ok; ok, _ = dll.Prepend(NewNode(j)) {
-//           // Tail.Log("not ok")
-//         }
-//       }
-//     }
-//   })
-// }
-
-var setThisForBenchmark bool
+var contains bool
 
 func BenchmarkParallelRead(b *testing.B) {
   threadsCount := 10000
@@ -330,7 +348,7 @@ func BenchmarkParallelRead(b *testing.B) {
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
-        setThisForBenchmark = dll.Contains(node)
+        contains = dll.Contains(node)
       }
     }
   })
@@ -363,7 +381,7 @@ func BenchmarkMapParallelRead(b *testing.B) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
         m := mapAccess.Load().(AtomicMap)
-        setThisForBenchmark = m[1]
+        contains = m[1]
       }
     }
   })
@@ -380,7 +398,7 @@ func BenchmarkMapParallelRead(b *testing.B) {
 //     for pb.Next() {
 //       for i := 0; i < readN; i++ {
 //         m := mapAccess.Load().(AtomicMap)
-//         setThisForBenchmark = m["A"]
+//         contains = m["A"]
 //       }
 //     }
 //   })
