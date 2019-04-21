@@ -9,6 +9,7 @@ import (
   "sync/atomic"
   "unsafe"
 
+  "github.com/cheekybits/genny/generic"
   "github.com/dchest/siphash"
   "github.com/pkg/errors"
 )
@@ -19,9 +20,15 @@ var (
   // freenode = unsafe.Pointer(new(int))
 )
 
+type (
+  Value generic.Type
+)
+
 func NewValueLinkedList() *LinkedList {
-  head := &sentinel{node{value: -2}}
-  tail := &sentinel{node{value: -1}}
+  // head := &sentinel{ValueNode{value: -2}}
+  // tail := &sentinel{ValueNode{value: -1}}
+  head := &sentinel{ValueNode{}}
+  tail := &sentinel{ValueNode{}}
 
   head.next = unsafe.Pointer(tail)
   return &LinkedList{
@@ -31,29 +38,29 @@ func NewValueLinkedList() *LinkedList {
 }
 
 // region Node
-func NewValueNode(id int) *node {
-  return &node{
+func NewValueNode(id int) *ValueNode {
+  return &ValueNode{
     value: id,
     key:   getKeyHash(id),
   }
 }
 
-type node struct {
+type ValueNode struct {
   key   uint64
-  value int
+  value Value
   next  unsafe.Pointer // What if GC runs?
 }
 
-func (n *node) Next() *node {
-  return (*node)(atomic.LoadPointer(&n.next))
+func (n *ValueNode) Next() *ValueNode {
+  return (*ValueNode)(atomic.LoadPointer(&n.next))
 }
 
-func (n *node) nextptr() unsafe.Pointer {
+func (n *ValueNode) nextptr() unsafe.Pointer {
   return atomic.LoadPointer(&n.next)
 }
 
 type sentinel struct {
-  node
+  ValueNode
 }
 
 // endregion
@@ -70,16 +77,16 @@ func (l *LinkedList) Len() int {
   return int(atomic.LoadInt32(&l.len))
 }
 
-func (l *LinkedList) Head() *node {
-  return (*node)(atomic.LoadPointer(&l.head))
+func (l *LinkedList) Head() *ValueNode {
+  return (*ValueNode)(atomic.LoadPointer(&l.head))
 }
 
-func (l *LinkedList) Tail() *node {
-  return (*node)(atomic.LoadPointer(&l.tail))
+func (l *LinkedList) Tail() *ValueNode {
+  return (*ValueNode)(atomic.LoadPointer(&l.tail))
 }
 
-func (l *LinkedList) Insert(el *node) (bool, error) {
-  var left, right *node
+func (l *LinkedList) Insert(el *ValueNode) (bool, error) {
+  var left, right *ValueNode
   for {
     left, right = l.search(el.key)
 
@@ -95,8 +102,8 @@ func (l *LinkedList) Insert(el *node) (bool, error) {
   }
 }
 
-func (l *LinkedList) Delete(el *node) (bool, error) {
-  var right *node
+func (l *LinkedList) Delete(el *ValueNode) (bool, error) {
+  var right *ValueNode
   var rightnext unsafe.Pointer
 
   for {
@@ -121,8 +128,8 @@ func (l *LinkedList) Delete(el *node) (bool, error) {
   return true, nil
 }
 
-func (l *LinkedList) search(key uint64) (left, right *node) {
-  var leftnext *node
+func (l *LinkedList) search(key uint64) (left, right *ValueNode) {
+  var leftnext *ValueNode
 
   for {
     prev := l.Head()
@@ -131,10 +138,10 @@ func (l *LinkedList) search(key uint64) (left, right *node) {
     for {
       if !marked(currptr) {
         left = prev
-        leftnext = (*node)(currptr)
+        leftnext = (*ValueNode)(currptr)
       }
 
-      prev = (*node)(unmark(currptr))
+      prev = (*ValueNode)(unmark(currptr))
       if prev == l.Tail() {
         break
       }
@@ -164,7 +171,7 @@ func (l *LinkedList) search(key uint64) (left, right *node) {
   }
 }
 
-func (l *LinkedList) Contains(n *node) bool {
+func (l *LinkedList) Contains(n *ValueNode) bool {
   _, right := l.search(n.key)
   if right == l.Tail() || right.key != n.key {
     return false
@@ -185,7 +192,7 @@ func (l *LinkedList) CyclicIterator() *cyclicIterator {
 
 // region Iterators
 type iterator struct {
-  curr *node
+  curr *ValueNode
   list *LinkedList
 }
 
@@ -196,7 +203,7 @@ func NewIterator(list *LinkedList) *iterator {
   }
 }
 
-func (it *iterator) Next() (*node, bool) {
+func (it *iterator) Next() (*ValueNode, bool) {
   if it.curr == it.list.Head() {
     it.curr = it.curr.Next()
   }
@@ -207,7 +214,7 @@ func (it *iterator) Next() (*node, bool) {
     }
 
     n, nextptr := it.curr, it.curr.nextptr()
-    it.curr = (*node)(unmark(nextptr))
+    it.curr = (*ValueNode)(unmark(nextptr))
 
     if marked(nextptr) {
       continue
@@ -230,7 +237,7 @@ func NewCyclicIterator(list *LinkedList) *cyclicIterator {
   }
 }
 
-func (it *cyclicIterator) Next() (*node, bool) {
+func (it *cyclicIterator) Next() (*ValueNode, bool) {
   node, ok := it.iterator.Next()
 
   if !ok {

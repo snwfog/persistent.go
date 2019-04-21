@@ -88,7 +88,7 @@ func parallelInsert(b *testing.B, nodeCount int) {
   threadsCount := 10000
   // p := runtime.NumCPU()
   // n := b.N
-  nodes := make([]*node, 0, nodeCount)
+  nodes := make([]*IntNode, 0, nodeCount)
   for i := 0; i < nodeCount; i++ {
     nodes = append(nodes, NewIntNode(i))
   }
