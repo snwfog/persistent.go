@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   assert.Equal(t, 0, dll.Len())
   assert.NotNil(t, dll.Head())
   assert.NotNil(t, dll.Tail())
@@ -17,22 +17,22 @@ func TestCreate(t *testing.T) {
 }
 
 func TestInsertUniqueOnly(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
-  // n1, n2 := NewNode(1), NewNode(1)
+  // n1, n2 := NewIntNode(1), NewIntNode(1)
   // t.Logf("%d, %d", n1.key, n2.key)
 
-  _, _ = dll.Insert(NewNode(1))
+  _, _ = dll.Insert(NewIntNode(1))
   assert.Equal(t, 1, dll.Len())
 
-  _, _ = dll.Insert(NewNode(1))
+  _, _ = dll.Insert(NewIntNode(1))
   assert.Equal(t, 1, dll.Len())
 }
 
 func TestInsert1(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
-  n1, n2 := NewNode(1), NewNode(2)
+  n1, n2 := NewIntNode(1), NewIntNode(2)
   // t.Logf("%d, %d", n1.key, n2.key)
 
   _, _ = dll.Insert(n1)
@@ -43,8 +43,8 @@ func TestInsert1(t *testing.T) {
 }
 
 func TestInsert2(t *testing.T) {
-  dll := NewLinkedList()
-  n1, n2, n3 := NewNode(1), NewNode(2), NewNode(3)
+  dll := NewIntLinkedList()
+  n1, n2, n3 := NewIntNode(1), NewIntNode(2), NewIntNode(3)
 
   _, _ = dll.Insert(n1)
   _, _ = dll.Insert(n2)
@@ -54,13 +54,13 @@ func TestInsert2(t *testing.T) {
 }
 
 func TestConcurrentInsert1(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   p := runtime.NumCPU()
   n := 1 << 10
 
   // nodes := make([]*node, 0, n)
   // for i := 0; i < n; i++ {
-  //   nodes = append(nodes, NewNode(i))
+  //   nodes = append(nodes, NewIntNode(i))
   // }
 
   wg := sync.WaitGroup{}
@@ -69,7 +69,7 @@ func TestConcurrentInsert1(t *testing.T) {
   for i := 0; i < p; i += 1 {
     go func() {
       for j := 0; j < n; j++ {
-        _, _ = dll.Insert(NewNode(j))
+        _, _ = dll.Insert(NewIntNode(j))
       }
       wg.Done()
     }()
@@ -117,7 +117,7 @@ func TestConcurrentInsert1(t *testing.T) {
 // }
 
 func TestConcurrentInsertDelete1(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   n := 1 << 10
   workChan := make(chan int)
 
@@ -126,7 +126,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 
   go func() {
     for j := 0; j < n; j++ {
-      node := NewNode(j)
+      node := NewIntNode(j)
       _, _ = dll.Insert(node)
 
       if j%2 == 0 {
@@ -139,7 +139,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 
   go func() {
     for i := range workChan {
-      node := NewNode(i)
+      node := NewIntNode(i)
       _, _ = dll.Delete(node)
     }
 
@@ -156,7 +156,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
   pc := 100
   // pc := 20000
 
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   channel := make(chan int)
   doneChan := make(chan int)
 
@@ -167,7 +167,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func() {
       for j := 0; j < n; j++ {
-        n := NewNode(j)
+        n := NewIntNode(j)
         _, _ = dll.Insert(n)
         // t.Logf("p[1] %d, hash %d", k, n.key)
         if j%2 == 0 {
@@ -182,7 +182,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
   // Consumers
   go func() {
     for j := range channel {
-      n := NewNode(j)
+      n := NewIntNode(j)
       _, _ = dll.Delete(n)
       // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
     }
@@ -222,12 +222,12 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
   }
 
   doneChan := make(chan int)
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
   // Producers
   go func() {
     for j := 0; j < n; j++ {
-      n := NewNode(j)
+      n := NewIntNode(j)
       _, _ = dll.Insert(n)
       // t.Logf("p[1] %d, hash %d", k, n.key)
       if j%2 == 0 {
@@ -246,7 +246,7 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func(k int) {
       for j := range channels[k] {
-        n := NewNode(j)
+        n := NewIntNode(j)
         _, _ = dll.Delete(n)
         // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
       }
@@ -284,13 +284,13 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
   }
 
   doneChan := make(chan int)
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
   // Producers
   for i := 0; i < pc; i++ {
     go func(k int) {
       for j := 0; j < n; j++ {
-        n := NewNode(j)
+        n := NewIntNode(j)
         _, _ = dll.Insert(n)
         // t.Logf("p[1] %d, hash %d", k, n.key)
         if j%2 == 0 {
@@ -306,7 +306,7 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func(k int) {
       for j := range channels[k] {
-        n := NewNode(j)
+        n := NewIntNode(j)
         _, _ = dll.Delete(n)
         // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
       }
@@ -335,20 +335,20 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
-  ok, err := dll.Delete(NewNode(1))
+  ok, err := dll.Delete(NewIntNode(1))
   assert.False(t, ok)
   assert.Nil(t, err)
 
-  _, _ = dll.Insert(NewNode(1))
+  _, _ = dll.Insert(NewIntNode(1))
   assert.Equal(t, dll.Len(), 1)
 
-  ok, err = dll.Delete(NewNode(1))
+  ok, err = dll.Delete(NewIntNode(1))
   assert.True(t, ok)
   assert.Nil(t, err)
 
-  ok, err = dll.Delete(NewNode(1))
+  ok, err = dll.Delete(NewIntNode(1))
   assert.False(t, ok)
   assert.Nil(t, err)
 
@@ -356,12 +356,12 @@ func TestDelete(t *testing.T) {
 }
 
 func TestConcurrentDelete1(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   p := runtime.NumCPU()
   n := 1 << 10
 
   for i := 0; i < n; i++ {
-    _, _ = dll.Insert(NewNode(i))
+    _, _ = dll.Insert(NewIntNode(i))
   }
 
   wg := sync.WaitGroup{}
@@ -370,7 +370,7 @@ func TestConcurrentDelete1(t *testing.T) {
   for i := 0; i < p; i += 1 {
     go func() {
       for j := 0; j < n; j++ {
-        _, _ = dll.Delete(NewNode(j))
+        _, _ = dll.Delete(NewIntNode(j))
       }
       wg.Done()
     }()

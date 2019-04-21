@@ -13,9 +13,9 @@ var contains bool
 func BenchmarkParallelRead(b *testing.B) {
   threadsCount := 10000
   readN := 1000
-  dll := NewLinkedList()
-  node := NewNode(1)
-  _, _ = dll.Insert(NewNode(1))
+  dll := NewIntLinkedList()
+  node := NewIntNode(1)
+  _, _ = dll.Insert(NewIntNode(1))
   b.SetParallelism(threadsCount)
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
@@ -29,12 +29,12 @@ func BenchmarkParallelRead(b *testing.B) {
 func BenchmarkParallelUpdate(b *testing.B) {
   threadsCount := 10000
   readN := 1000
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   b.SetParallelism(threadsCount)
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
-        _, _ = dll.Insert(NewNode(1))
+        _, _ = dll.Insert(NewIntNode(1))
       }
     }
   })
@@ -84,16 +84,16 @@ func BenchmarkParallelInsert_13(b *testing.B) { parallelInsert(b, 1<<13) }
 
 func parallelInsert(b *testing.B, nodeCount int) {
   // b.Logf("%d", nodeCount)
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
   threadsCount := 10000
   // p := runtime.NumCPU()
   // n := b.N
   nodes := make([]*node, 0, nodeCount)
   for i := 0; i < nodeCount; i++ {
-    nodes = append(nodes, NewNode(i))
+    nodes = append(nodes, NewIntNode(i))
   }
 
-  // node := NewNode(rand.Int())
+  // node := NewIntNode(rand.Int())
   b.SetParallelism(threadsCount)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
@@ -129,12 +129,12 @@ func mapParallelInsert(b *testing.B, nodeCount int) {
 
 func BenchmarkParallelTake(b *testing.B) {
   threadsCount := 10000
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
   // Insert some nodes
   n := 1 << 10
   for i := 0; i < n; i++ {
-    _, _ = dll.Insert(NewNode(i))
+    _, _ = dll.Insert(NewIntNode(i))
   }
 
   producers := 5
@@ -146,7 +146,7 @@ func BenchmarkParallelTake(b *testing.B) {
       for {
         select {
         case <-interval.C:
-          _, _ = dll.Insert(NewNode(rand.Int()))
+          _, _ = dll.Insert(NewIntNode(rand.Int()))
         case <-doneChan:
           break L
         }

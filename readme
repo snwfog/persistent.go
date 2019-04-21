@@ -13,3 +13,10 @@ caveat
 
 - list is actually a set -> duplicate key not allowed
 - can be modified to store other struct instead of int (see node struct)
+
+commands
+
+- go test -race -count=1 -run=ParallelAppend1 -v ./persistent
+- go test -race -count=1 -run=XXX -bench=ParallelRead -benchmem -v ./persistent
+- go generate ./persistent/linked_list
+

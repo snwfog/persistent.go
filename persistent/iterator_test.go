@@ -7,11 +7,11 @@ import (
 )
 
 func TestIterator1(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
-  _, _ = dll.Insert(NewNode(1))
-  _, _ = dll.Insert(NewNode(2))
-  _, _ = dll.Insert(NewNode(3))
+  _, _ = dll.Insert(NewIntNode(1))
+  _, _ = dll.Insert(NewIntNode(2))
+  _, _ = dll.Insert(NewIntNode(3))
 
   it := dll.Iterator()
 
@@ -26,10 +26,10 @@ func TestIterator1(t *testing.T) {
 }
 
 func TestIterator2(t *testing.T) {
-  dll := NewLinkedList()
-  _, _ = dll.Insert(NewNode(1))
-  _, _ = dll.Insert(NewNode(2))
-  _, _ = dll.Insert(NewNode(3))
+  dll := NewIntLinkedList()
+  _, _ = dll.Insert(NewIntNode(1))
+  _, _ = dll.Insert(NewIntNode(2))
+  _, _ = dll.Insert(NewIntNode(3))
 
   it := dll.Iterator()
 
@@ -48,11 +48,11 @@ func TestIterator2(t *testing.T) {
 }
 
 func TestCyclicIterator1(t *testing.T) {
-  dll := NewLinkedList()
+  dll := NewIntLinkedList()
 
-  _, _ = dll.Insert(NewNode(1))
-  _, _ = dll.Insert(NewNode(2))
-  _, _ = dll.Insert(NewNode(3))
+  _, _ = dll.Insert(NewIntNode(1))
+  _, _ = dll.Insert(NewIntNode(2))
+  _, _ = dll.Insert(NewIntNode(3))
 
   it := dll.CyclicIterator()
 
