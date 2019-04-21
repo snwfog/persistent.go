@@ -152,20 +152,20 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 }
 
 func TestConcurrentInsertDeleteN1(t *testing.T) {
-  n := 1 << 10
+  n := 1 << 12
   pc := 100
   // pc := 20000
 
-  channel := make(chan int)
-
-  doneChan := make(chan int)
   dll := NewLinkedList()
+  channel := make(chan int)
+  doneChan := make(chan int)
+
   wg := sync.WaitGroup{}
   wg.Add(pc)
 
   // Producers
   for i := 0; i < pc; i++ {
-    go func(k int) {
+    go func() {
       for j := 0; j < n; j++ {
         n := NewNode(j)
         _, _ = dll.Insert(n)
@@ -176,7 +176,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
       }
 
       wg.Done()
-    }(i)
+    }()
   }
 
   // Consumers
@@ -194,7 +194,10 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
   close(doneChan)
   <-doneChan
 
+  for ; n>>1 != dll.Len(); {
+  }
   assert.Equal(t, n>>1, dll.Len())
+
   it := dll.Iterator()
 
   var sum int
