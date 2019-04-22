@@ -1,4 +1,5 @@
-//go:generate genny -in=$GOFILE -out=../int_$GOFILE -pkg=persistent gen "Value=int"
+//go:generate genny -in=$GOFILE -out=../int_persistent/$GOFILE -pkg=int_persistent gen "Value=int"
+//go:generate genny -in=$GOFILE -out=../campaign_persistent/$GOFILE -pkg=campaign_persistent gen "Value=Campaign"
 
 package linked_list
 
@@ -25,8 +26,8 @@ type (
 )
 
 func NewValueLinkedList() *LinkedList {
-  // head := &sentinel{ValueNode{value: -2}}
-  // tail := &sentinel{ValueNode{value: -1}}
+  // head := &sentinel{ValueNode{valueptr: -2}}
+  // tail := &sentinel{ValueNode{valueptr: -1}}
   head := &sentinel{ValueNode{}}
   tail := &sentinel{ValueNode{}}
 
@@ -38,21 +39,33 @@ func NewValueLinkedList() *LinkedList {
 }
 
 // region Node
-func NewValueNode(value Value) *ValueNode {
+func NewValueNode(key interface{}, valueptr unsafe.Pointer) *ValueNode {
   return &ValueNode{
-    value: value,
-    key:   getKeyHash(value),
+    valueptr: valueptr,
+    key:      getKeyHash(key),
   }
 }
 
+func NewBuiltinValueNode(value Value) *ValueNode {
+  return NewValueNode(value, unsafe.Pointer(&value))
+}
+
 type ValueNode struct {
-  key   uint64
-  value Value
-  next  unsafe.Pointer // What if GC runs?
+  key      uint64
+  valueptr unsafe.Pointer
+  next     unsafe.Pointer // What if GC runs?
 }
 
 func (n *ValueNode) Next() *ValueNode {
   return (*ValueNode)(atomic.LoadPointer(&n.next))
+}
+
+func (n *ValueNode) GetValue() *Value {
+  return (*Value)(atomic.LoadPointer(&n.valueptr))
+}
+
+func (n *ValueNode) GetBuiltinValue() Value {
+  return *(n.GetValue())
 }
 
 func (n *ValueNode) nextptr() unsafe.Pointer {

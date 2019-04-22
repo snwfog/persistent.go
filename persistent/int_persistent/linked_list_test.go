@@ -1,4 +1,4 @@
-package persistent
+package int_persistent
 
 import (
   "runtime"
@@ -19,20 +19,20 @@ func TestCreate(t *testing.T) {
 func TestInsertUniqueOnly(t *testing.T) {
   dll := NewIntLinkedList()
 
-  // n1, n2 := NewIntNode(1), NewIntNode(1)
+  // n1, n2 := NewBuiltinIntNode(1), NewBuiltinIntNode(1)
   // t.Logf("%d, %d", n1.key, n2.key)
 
-  _, _ = dll.Insert(NewIntNode(1))
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
   assert.Equal(t, 1, dll.Len())
 
-  _, _ = dll.Insert(NewIntNode(1))
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
   assert.Equal(t, 1, dll.Len())
 }
 
 func TestInsert1(t *testing.T) {
   dll := NewIntLinkedList()
 
-  n1, n2 := NewIntNode(1), NewIntNode(2)
+  n1, n2 := NewBuiltinIntNode(1), NewBuiltinIntNode(2)
   // t.Logf("%d, %d", n1.key, n2.key)
 
   _, _ = dll.Insert(n1)
@@ -44,7 +44,7 @@ func TestInsert1(t *testing.T) {
 
 func TestInsert2(t *testing.T) {
   dll := NewIntLinkedList()
-  n1, n2, n3 := NewIntNode(1), NewIntNode(2), NewIntNode(3)
+  n1, n2, n3 := NewBuiltinIntNode(1), NewBuiltinIntNode(2), NewBuiltinIntNode(3)
 
   _, _ = dll.Insert(n1)
   _, _ = dll.Insert(n2)
@@ -60,7 +60,7 @@ func TestConcurrentInsert1(t *testing.T) {
 
   // nodes := make([]*node, 0, n)
   // for i := 0; i < n; i++ {
-  //   nodes = append(nodes, NewIntNode(i))
+  //   nodes = append(nodes, NewBuiltinIntNode(i))
   // }
 
   wg := sync.WaitGroup{}
@@ -69,7 +69,7 @@ func TestConcurrentInsert1(t *testing.T) {
   for i := 0; i < p; i += 1 {
     go func() {
       for j := 0; j < n; j++ {
-        _, _ = dll.Insert(NewIntNode(j))
+        _, _ = dll.Insert(NewBuiltinIntNode(j))
       }
       wg.Done()
     }()
@@ -82,7 +82,7 @@ func TestConcurrentInsert1(t *testing.T) {
   it := dll.Iterator()
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
-    sum += n.value
+    sum += n.GetBuiltinInt()
   }
 
   assert.Equal(t, (n-1)*n/2, sum)
@@ -126,7 +126,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 
   go func() {
     for j := 0; j < n; j++ {
-      node := NewIntNode(j)
+      node := NewBuiltinIntNode(j)
       _, _ = dll.Insert(node)
 
       if j%2 == 0 {
@@ -139,7 +139,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 
   go func() {
     for i := range workChan {
-      node := NewIntNode(i)
+      node := NewBuiltinIntNode(i)
       _, _ = dll.Delete(node)
     }
 
@@ -167,7 +167,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func() {
       for j := 0; j < n; j++ {
-        n := NewIntNode(j)
+        n := NewBuiltinIntNode(j)
         _, _ = dll.Insert(n)
         // t.Logf("p[1] %d, hash %d", k, n.key)
         if j%2 == 0 {
@@ -182,7 +182,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
   // Consumers
   go func() {
     for j := range channel {
-      n := NewIntNode(j)
+      n := NewBuiltinIntNode(j)
       _, _ = dll.Delete(n)
       // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
     }
@@ -202,9 +202,9 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
 
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
-    sum += n.value
-    if n.value%2 == 0 {
-      t.Logf("value: %d!", n.value)
+    sum += n.GetBuiltinInt()
+    if n.GetBuiltinInt()%2 == 0 {
+      t.Logf("value: %d!", n.GetBuiltinInt())
     }
   }
 
@@ -227,7 +227,7 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
   // Producers
   go func() {
     for j := 0; j < n; j++ {
-      n := NewIntNode(j)
+      n := NewBuiltinIntNode(j)
       _, _ = dll.Insert(n)
       // t.Logf("p[1] %d, hash %d", k, n.key)
       if j%2 == 0 {
@@ -246,7 +246,7 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func(k int) {
       for j := range channels[k] {
-        n := NewIntNode(j)
+        n := NewBuiltinIntNode(j)
         _, _ = dll.Delete(n)
         // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
       }
@@ -264,9 +264,9 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
 
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
-    sum += n.value
-    if n.value%2 == 0 {
-      t.Logf("value: %d!", n.value)
+    sum += n.GetBuiltinInt()
+    if n.GetBuiltinInt()%2 == 0 {
+      t.Logf("value: %d!", n.GetBuiltinInt())
     }
   }
 
@@ -290,7 +290,7 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func(k int) {
       for j := 0; j < n; j++ {
-        n := NewIntNode(j)
+        n := NewBuiltinIntNode(j)
         _, _ = dll.Insert(n)
         // t.Logf("p[1] %d, hash %d", k, n.key)
         if j%2 == 0 {
@@ -306,7 +306,7 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
   for i := 0; i < pc; i++ {
     go func(k int) {
       for j := range channels[k] {
-        n := NewIntNode(j)
+        n := NewBuiltinIntNode(j)
         _, _ = dll.Delete(n)
         // t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, dll.Len(), ok)
       }
@@ -324,9 +324,9 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
-    sum += n.value
-    if n.value%2 == 0 {
-      t.Logf("value: %d!", n.value)
+    sum += n.GetBuiltinInt()
+    if n.GetBuiltinInt()%2 == 0 {
+      t.Logf("value: %d!", n.GetBuiltinInt())
     }
   }
 
@@ -337,18 +337,18 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 func TestDelete(t *testing.T) {
   dll := NewIntLinkedList()
 
-  ok, err := dll.Delete(NewIntNode(1))
+  ok, err := dll.Delete(NewBuiltinIntNode(1))
   assert.False(t, ok)
   assert.Nil(t, err)
 
-  _, _ = dll.Insert(NewIntNode(1))
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
   assert.Equal(t, dll.Len(), 1)
 
-  ok, err = dll.Delete(NewIntNode(1))
+  ok, err = dll.Delete(NewBuiltinIntNode(1))
   assert.True(t, ok)
   assert.Nil(t, err)
 
-  ok, err = dll.Delete(NewIntNode(1))
+  ok, err = dll.Delete(NewBuiltinIntNode(1))
   assert.False(t, ok)
   assert.Nil(t, err)
 
@@ -361,7 +361,7 @@ func TestConcurrentDelete1(t *testing.T) {
   n := 1 << 10
 
   for i := 0; i < n; i++ {
-    _, _ = dll.Insert(NewIntNode(i))
+    _, _ = dll.Insert(NewBuiltinIntNode(i))
   }
 
   wg := sync.WaitGroup{}
@@ -370,7 +370,7 @@ func TestConcurrentDelete1(t *testing.T) {
   for i := 0; i < p; i += 1 {
     go func() {
       for j := 0; j < n; j++ {
-        _, _ = dll.Delete(NewIntNode(j))
+        _, _ = dll.Delete(NewBuiltinIntNode(j))
       }
       wg.Done()
     }()
@@ -383,7 +383,7 @@ func TestConcurrentDelete1(t *testing.T) {
   it := dll.Iterator()
   var sum int
   for n, ok := it.Next(); ok; n, ok = it.Next() {
-    sum += n.value
+    sum += n.GetBuiltinInt()
   }
 
   assert.Equal(t, 0, sum)

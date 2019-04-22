@@ -1,4 +1,4 @@
-package persistent
+package int_persistent
 
 import (
   "testing"
@@ -9,9 +9,9 @@ import (
 func TestIterator1(t *testing.T) {
   dll := NewIntLinkedList()
 
-  _, _ = dll.Insert(NewIntNode(1))
-  _, _ = dll.Insert(NewIntNode(2))
-  _, _ = dll.Insert(NewIntNode(3))
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
+  _, _ = dll.Insert(NewBuiltinIntNode(2))
+  _, _ = dll.Insert(NewBuiltinIntNode(3))
 
   it := dll.Iterator()
 
@@ -27,9 +27,9 @@ func TestIterator1(t *testing.T) {
 
 func TestIterator2(t *testing.T) {
   dll := NewIntLinkedList()
-  _, _ = dll.Insert(NewIntNode(1))
-  _, _ = dll.Insert(NewIntNode(2))
-  _, _ = dll.Insert(NewIntNode(3))
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
+  _, _ = dll.Insert(NewBuiltinIntNode(2))
+  _, _ = dll.Insert(NewBuiltinIntNode(3))
 
   it := dll.Iterator()
 
@@ -50,9 +50,9 @@ func TestIterator2(t *testing.T) {
 func TestCyclicIterator1(t *testing.T) {
   dll := NewIntLinkedList()
 
-  _, _ = dll.Insert(NewIntNode(1))
-  _, _ = dll.Insert(NewIntNode(2))
-  _, _ = dll.Insert(NewIntNode(3))
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
+  _, _ = dll.Insert(NewBuiltinIntNode(2))
+  _, _ = dll.Insert(NewBuiltinIntNode(3))
 
   it := dll.CyclicIterator()
 

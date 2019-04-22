@@ -1,4 +1,4 @@
-package persistent
+package int_persistent
 
 import (
   "math/rand"
@@ -14,8 +14,8 @@ func BenchmarkParallelRead(b *testing.B) {
   threadsCount := 10000
   readN := 1000
   dll := NewIntLinkedList()
-  node := NewIntNode(1)
-  _, _ = dll.Insert(NewIntNode(1))
+  node := NewBuiltinIntNode(1)
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
   b.SetParallelism(threadsCount)
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
@@ -34,7 +34,7 @@ func BenchmarkParallelUpdate(b *testing.B) {
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
-        _, _ = dll.Insert(NewIntNode(1))
+        _, _ = dll.Insert(NewBuiltinIntNode(1))
       }
     }
   })
@@ -90,10 +90,10 @@ func parallelInsert(b *testing.B, nodeCount int) {
   // n := b.N
   nodes := make([]*IntNode, 0, nodeCount)
   for i := 0; i < nodeCount; i++ {
-    nodes = append(nodes, NewIntNode(i))
+    nodes = append(nodes, NewBuiltinIntNode(i))
   }
 
-  // node := NewIntNode(rand.Int())
+  // node := NewBuiltinIntNode(rand.Int())
   b.SetParallelism(threadsCount)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
@@ -134,7 +134,7 @@ func BenchmarkParallelTake(b *testing.B) {
   // Insert some nodes
   n := 1 << 10
   for i := 0; i < n; i++ {
-    _, _ = dll.Insert(NewIntNode(i))
+    _, _ = dll.Insert(NewBuiltinIntNode(i))
   }
 
   producers := 5
@@ -146,7 +146,7 @@ func BenchmarkParallelTake(b *testing.B) {
       for {
         select {
         case <-interval.C:
-          _, _ = dll.Insert(NewIntNode(rand.Int()))
+          _, _ = dll.Insert(NewBuiltinIntNode(rand.Int()))
         case <-doneChan:
           break L
         }

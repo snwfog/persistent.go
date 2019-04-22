@@ -2,7 +2,7 @@
 // Any changes will be lost if this file is regenerated.
 // see https://github.com/cheekybits/genny
 
-package persistent
+package campaign_persistent
 
 import (
 	"errors"
@@ -23,11 +23,11 @@ var (
 
 type ()
 
-func NewIntLinkedList() *LinkedList {
-	// head := &sentinel{IntNode{value: -2}}
-	// tail := &sentinel{IntNode{value: -1}}
-	head := &sentinel{IntNode{}}
-	tail := &sentinel{IntNode{}}
+func NewCampaignLinkedList() *LinkedList {
+	// head := &sentinel{CampaignNode{valueptr: -2}}
+	// tail := &sentinel{CampaignNode{valueptr: -1}}
+	head := &sentinel{CampaignNode{}}
+	tail := &sentinel{CampaignNode{}}
 
 	head.next = unsafe.Pointer(tail)
 	return &LinkedList{
@@ -37,29 +37,41 @@ func NewIntLinkedList() *LinkedList {
 }
 
 // region Node
-func NewIntNode(id int) *IntNode {
-	return &IntNode{
-		value: id,
-		key:   getKeyHash(id),
+func NewCampaignNode(key interface{}, valueptr unsafe.Pointer) *CampaignNode {
+	return &CampaignNode{
+		valueptr: valueptr,
+		key:      getKeyHash(key),
 	}
 }
 
-type IntNode struct {
-	key   uint64
-	value int
-	next  unsafe.Pointer // What if GC runs?
+func NewBuiltinCampaignNode(value Campaign) *CampaignNode {
+	return NewCampaignNode(value, unsafe.Pointer(&value))
 }
 
-func (n *IntNode) Next() *IntNode {
-	return (*IntNode)(atomic.LoadPointer(&n.next))
+type CampaignNode struct {
+	key      uint64
+	valueptr unsafe.Pointer
+	next     unsafe.Pointer // What if GC runs?
 }
 
-func (n *IntNode) nextptr() unsafe.Pointer {
+func (n *CampaignNode) Next() *CampaignNode {
+	return (*CampaignNode)(atomic.LoadPointer(&n.next))
+}
+
+func (n *CampaignNode) GetCampaign() *Campaign {
+	return (*Campaign)(atomic.LoadPointer(&n.valueptr))
+}
+
+func (n *CampaignNode) GetBuiltinCampaign() Campaign {
+	return *(n.GetCampaign())
+}
+
+func (n *CampaignNode) nextptr() unsafe.Pointer {
 	return atomic.LoadPointer(&n.next)
 }
 
 type sentinel struct {
-	IntNode
+	CampaignNode
 }
 
 // endregion
@@ -76,16 +88,16 @@ func (l *LinkedList) Len() int {
 	return int(atomic.LoadInt32(&l.len))
 }
 
-func (l *LinkedList) Head() *IntNode {
-	return (*IntNode)(atomic.LoadPointer(&l.head))
+func (l *LinkedList) Head() *CampaignNode {
+	return (*CampaignNode)(atomic.LoadPointer(&l.head))
 }
 
-func (l *LinkedList) Tail() *IntNode {
-	return (*IntNode)(atomic.LoadPointer(&l.tail))
+func (l *LinkedList) Tail() *CampaignNode {
+	return (*CampaignNode)(atomic.LoadPointer(&l.tail))
 }
 
-func (l *LinkedList) Insert(el *IntNode) (bool, error) {
-	var left, right *IntNode
+func (l *LinkedList) Insert(el *CampaignNode) (bool, error) {
+	var left, right *CampaignNode
 	for {
 		left, right = l.search(el.key)
 
@@ -101,8 +113,8 @@ func (l *LinkedList) Insert(el *IntNode) (bool, error) {
 	}
 }
 
-func (l *LinkedList) Delete(el *IntNode) (bool, error) {
-	var right *IntNode
+func (l *LinkedList) Delete(el *CampaignNode) (bool, error) {
+	var right *CampaignNode
 	var rightnext unsafe.Pointer
 
 	for {
@@ -127,8 +139,8 @@ func (l *LinkedList) Delete(el *IntNode) (bool, error) {
 	return true, nil
 }
 
-func (l *LinkedList) search(key uint64) (left, right *IntNode) {
-	var leftnext *IntNode
+func (l *LinkedList) search(key uint64) (left, right *CampaignNode) {
+	var leftnext *CampaignNode
 
 	for {
 		prev := l.Head()
@@ -137,10 +149,10 @@ func (l *LinkedList) search(key uint64) (left, right *IntNode) {
 		for {
 			if !marked(currptr) {
 				left = prev
-				leftnext = (*IntNode)(currptr)
+				leftnext = (*CampaignNode)(currptr)
 			}
 
-			prev = (*IntNode)(unmark(currptr))
+			prev = (*CampaignNode)(unmark(currptr))
 			if prev == l.Tail() {
 				break
 			}
@@ -170,7 +182,7 @@ func (l *LinkedList) search(key uint64) (left, right *IntNode) {
 	}
 }
 
-func (l *LinkedList) Contains(n *IntNode) bool {
+func (l *LinkedList) Contains(n *CampaignNode) bool {
 	_, right := l.search(n.key)
 	if right == l.Tail() || right.key != n.key {
 		return false
@@ -191,7 +203,7 @@ func (l *LinkedList) CyclicIterator() *cyclicIterator {
 
 // region Iterators
 type iterator struct {
-	curr *IntNode
+	curr *CampaignNode
 	list *LinkedList
 }
 
@@ -202,7 +214,7 @@ func NewIterator(list *LinkedList) *iterator {
 	}
 }
 
-func (it *iterator) Next() (*IntNode, bool) {
+func (it *iterator) Next() (*CampaignNode, bool) {
 	if it.curr == it.list.Head() {
 		it.curr = it.curr.Next()
 	}
@@ -213,7 +225,7 @@ func (it *iterator) Next() (*IntNode, bool) {
 		}
 
 		n, nextptr := it.curr, it.curr.nextptr()
-		it.curr = (*IntNode)(unmark(nextptr))
+		it.curr = (*CampaignNode)(unmark(nextptr))
 
 		if marked(nextptr) {
 			continue
@@ -236,7 +248,7 @@ func NewCyclicIterator(list *LinkedList) *cyclicIterator {
 	}
 }
 
-func (it *cyclicIterator) Next() (*IntNode, bool) {
+func (it *cyclicIterator) Next() (*CampaignNode, bool) {
 	node, ok := it.iterator.Next()
 
 	if !ok {
