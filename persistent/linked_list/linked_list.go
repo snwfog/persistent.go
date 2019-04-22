@@ -38,10 +38,10 @@ func NewValueLinkedList() *LinkedList {
 }
 
 // region Node
-func NewValueNode(id int) *ValueNode {
+func NewValueNode(value Value) *ValueNode {
   return &ValueNode{
-    value: id,
-    key:   getKeyHash(id),
+    value: value,
+    key:   getKeyHash(value),
   }
 }
 
