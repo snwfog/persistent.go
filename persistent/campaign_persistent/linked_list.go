@@ -96,30 +96,40 @@ func (l *LinkedList) Tail() *CampaignNode {
 	return (*CampaignNode)(atomic.LoadPointer(&l.tail))
 }
 
-func (l *LinkedList) Insert(el *CampaignNode) (bool, error) {
+func (l *LinkedList) Insert(v *CampaignNode) (bool, error) {
 	var left, right *CampaignNode
 	for {
-		left, right = l.search(el.key)
+		left, right = l.search(v.key)
 
-		if right != l.Tail() && right.key == el.key {
+		if right != l.Tail() && right.key == v.key {
 			return false, inserterr
 		}
 
-		el.next = unsafe.Pointer(right)
-		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), unsafe.Pointer(el)) {
+		v.next = unsafe.Pointer(right)
+		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), unsafe.Pointer(v)) {
 			atomic.AddInt32(&l.len, 1)
 			return true, nil
 		}
 	}
 }
 
-func (l *LinkedList) Delete(el *CampaignNode) (bool, error) {
+func (l *LinkedList) Upsert(v *CampaignNode) (bool, error) {
+	_, right := l.search(v.key)
+	if right != l.Tail() && right.key == v.key {
+		atomic.StorePointer(&right.valueptr, v.valueptr)
+		return true, nil
+	}
+
+	return l.Insert(v)
+}
+
+func (l *LinkedList) Delete(v *CampaignNode) (bool, error) {
 	var right *CampaignNode
 	var rightnext unsafe.Pointer
 
 	for {
-		_, right = l.search(el.key)
-		if right == l.Tail() || right.key != el.key {
+		_, right = l.search(v.key)
+		if right == l.Tail() || right.key != v.key {
 			return false, nil // not deleted cause not found
 		}
 

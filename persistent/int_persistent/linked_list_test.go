@@ -334,6 +334,31 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
   t.Logf("sum expected %d, actual %d", n*n/4, sum)
 }
 
+func TestUpsert(t *testing.T) {
+  dll := NewIntLinkedList()
+  ok, err := dll.Delete(NewBuiltinIntNode(1))
+  assert.False(t, ok)
+  assert.Nil(t, err)
+
+  _, _ = dll.Insert(NewBuiltinIntNode(1))
+  assert.Equal(t, dll.Len(), 1)
+
+  ok, err = dll.Upsert(NewBuiltinIntNode(1))
+  assert.True(t, ok)
+  assert.Nil(t, err)
+  assert.Equal(t, dll.Len(), 1)
+
+  ok, err = dll.Upsert(NewBuiltinIntNode(1))
+  assert.True(t, ok)
+  assert.Nil(t, err)
+  assert.Equal(t, dll.Len(), 1)
+
+  ok, err = dll.Delete(NewBuiltinIntNode(1))
+  assert.True(t, ok)
+  assert.Nil(t, err)
+  assert.Equal(t, dll.Len(), 0)
+}
+
 func TestDelete(t *testing.T) {
   dll := NewIntLinkedList()
 
