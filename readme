@@ -6,8 +6,8 @@ persistent.go
 motivation
 
 - play with golang pointer and unsafe (gasp!)
-- actually need this and benchmark (?), over a map+mutex, sync.map, or load/store
-- other implementation were too hard to understand
+- actually need this and benchmark (see below), over a map+mutex, sync.map, or load/store
+- other implementations found here were too hard to understand
 
 caveat
 
@@ -16,20 +16,20 @@ caveat
 
 commands
 
-- go test -race -count=1 -run=ParallelAppend1 -v ./persistent
-- go test -race -count=1 -run=XXX -bench=ParallelRead -benchmem -v ./persistent
 - go generate ./persistent/linked_list
 
 
 results
 
-go test -count=1 -run=XXX -v -benchmem -bench=CampaignCopyParallel ./persistent/campaign_persistent
+go test -count=1 -run=XXX -v -benchmem -bench=Campaign ./persistent/campaign_persistent
 goos: darwin
 goarch: amd64
 pkg: persistent.go/persistent/campaign_persistent
-BenchmarkCampaignCopyParallelMap-16                       	   10000	    194560 ns/op	  342465 B/op	     117 allocs/op
-BenchmarkCampaignCopyParallelList-16                      	10000000	       383 ns/op	     148 B/op	       0 allocs/op
-BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	   10000	    174480 ns/op	  342416 B/op	     116 allocs/op
-BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	 1000000	      1824 ns/op	       5 B/op	       0 allocs/op
+BenchmarkCampaignCopyMap-16                               	    2000	   1180454 ns/op	  342338 B/op	     114 allocs/op
+BenchmarkCampaignCopyList-16                              	    2000	    927673 ns/op	  720896 B/op	       4 allocs/op
+BenchmarkCampaignCopyParallelMap-16                       	    5000	    221213 ns/op	  347434 B/op	     185 allocs/op
+BenchmarkCampaignCopyParallelList-16                      	    5000	    301975 ns/op	  723261 B/op	      70 allocs/op
+BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	   10000	    185038 ns/op	  343291 B/op	     145 allocs/op
+BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	    5000	    370579 ns/op	  723113 B/op	      68 allocs/op
 PASS
-ok  	persistent.go/persistent/campaign_persistent	16.073s
+ok  	persistent.go/persistent/campaign_persistent	28.545s

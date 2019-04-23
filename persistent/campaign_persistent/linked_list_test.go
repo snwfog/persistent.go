@@ -9,7 +9,7 @@ import (
 
 var (
   N = 5000
-  T = 1000
+  T = 20000
   D = time.Duration(100)
 )
 
@@ -97,15 +97,16 @@ func BenchmarkCampaignCopyList(b *testing.B) {
     _, _ = regionC.Insert(NewCampaignNode(c.id, c))
   }
 
-  itA := regionA.Iterator()
-  itB := regionB.Iterator()
-  itC := regionC.Iterator()
-
-  b.Logf("len: %d, %d, %d", regionA.Len(), regionB.Len(), regionC.Len())
+  // b.Logf("len: %d, %d, %d", regionA.Len(), regionB.Len(), regionC.Len())
 
   b.ResetTimer()
   for i := 0; i < b.N; i++ {
-    result2 = make([]*Campaign, 0)
+    result2 = make([]*Campaign, N*3)
+
+    itA := regionA.Iterator()
+    itB := regionB.Iterator()
+    itC := regionC.Iterator()
+
     for n, ok := itA.Next(); ok; n, ok = itA.Next() {
       result2 = append(result2, n.GetCampaign())
     }
@@ -119,7 +120,7 @@ func BenchmarkCampaignCopyList(b *testing.B) {
     }
   }
 
-  b.Logf("len: %d", len(result2))
+  // b.Logf("len: %d", len(result2))
 }
 
 func BenchmarkCampaignCopyParallelMap(b *testing.B) {
@@ -172,17 +173,18 @@ func BenchmarkCampaignCopyParallelList(b *testing.B) {
     _, _ = regionC.Insert(NewCampaignNode(c.id, c))
   }
 
-  itA := regionA.Iterator()
-  itB := regionB.Iterator()
-  itC := regionC.Iterator()
-
   mu := sync.Mutex{}
 
   b.SetParallelism(T)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
-      result := make([]*Campaign, 0)
+      result := make([]*Campaign, N*3)
+
+      itA := regionA.Iterator()
+      itB := regionB.Iterator()
+      itC := regionC.Iterator()
+
       for n, ok := itA.Next(); ok; n, ok = itA.Next() {
         result = append(result, n.GetCampaign())
       }
@@ -287,11 +289,6 @@ func BenchmarkCampaignCopyParallelListWithCampaignUpdate(b *testing.B) {
     _, _ = regionB.Insert(NewCampaignNode(c.id, c))
     _, _ = regionC.Insert(NewCampaignNode(c.id, c))
   }
-
-  itA := regionA.Iterator()
-  itB := regionB.Iterator()
-  itC := regionC.Iterator()
-
   // mu := sync.Mutex{}
 
   doneChan := make(chan int)
@@ -328,7 +325,12 @@ func BenchmarkCampaignCopyParallelListWithCampaignUpdate(b *testing.B) {
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
-      result := make([]*Campaign, 0)
+      result := make([]*Campaign, N*3)
+
+      itA := regionA.Iterator()
+      itB := regionB.Iterator()
+      itC := regionC.Iterator()
+
       for n, ok := itA.Next(); ok; n, ok = itA.Next() {
         result = append(result, n.GetCampaign())
       }
