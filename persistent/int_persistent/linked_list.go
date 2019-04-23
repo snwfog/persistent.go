@@ -37,15 +37,15 @@ func NewIntLinkedList() *LinkedList {
 }
 
 // region Node
-func NewIntNode(key interface{}, valueptr unsafe.Pointer) *IntNode {
+func NewIntNode(key interface{}, valueptr *int) *IntNode {
 	return &IntNode{
-		valueptr: valueptr,
+		valueptr: unsafe.Pointer(valueptr),
 		key:      getKeyHash(key),
 	}
 }
 
 func NewBuiltinIntNode(value int) *IntNode {
-	return NewIntNode(value, unsafe.Pointer(&value))
+	return NewIntNode(value, &value)
 }
 
 type IntNode struct {

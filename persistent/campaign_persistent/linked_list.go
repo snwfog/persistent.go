@@ -37,15 +37,15 @@ func NewCampaignLinkedList() *LinkedList {
 }
 
 // region Node
-func NewCampaignNode(key interface{}, valueptr unsafe.Pointer) *CampaignNode {
+func NewCampaignNode(key interface{}, valueptr *Campaign) *CampaignNode {
 	return &CampaignNode{
-		valueptr: valueptr,
+		valueptr: unsafe.Pointer(valueptr),
 		key:      getKeyHash(key),
 	}
 }
 
 func NewBuiltinCampaignNode(value Campaign) *CampaignNode {
-	return NewCampaignNode(value, unsafe.Pointer(&value))
+	return NewCampaignNode(value, &value)
 }
 
 type CampaignNode struct {

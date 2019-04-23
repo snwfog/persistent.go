@@ -39,15 +39,15 @@ func NewValueLinkedList() *LinkedList {
 }
 
 // region Node
-func NewValueNode(key interface{}, valueptr unsafe.Pointer) *ValueNode {
+func NewValueNode(key interface{}, valueptr *Value) *ValueNode {
   return &ValueNode{
-    valueptr: valueptr,
+    valueptr: unsafe.Pointer(valueptr),
     key:      getKeyHash(key),
   }
 }
 
 func NewBuiltinValueNode(value Value) *ValueNode {
-  return NewValueNode(value, unsafe.Pointer(&value))
+  return NewValueNode(value, &value)
 }
 
 type ValueNode struct {

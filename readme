@@ -20,3 +20,16 @@ commands
 - go test -race -count=1 -run=XXX -bench=ParallelRead -benchmem -v ./persistent
 - go generate ./persistent/linked_list
 
+
+results
+
+go test -count=1 -run=XXX -v -benchmem -bench=CampaignCopyParallel ./persistent/campaign_persistent
+goos: darwin
+goarch: amd64
+pkg: persistent.go/persistent/campaign_persistent
+BenchmarkCampaignCopyParallelMap-16                       	   10000	    194560 ns/op	  342465 B/op	     117 allocs/op
+BenchmarkCampaignCopyParallelList-16                      	10000000	       383 ns/op	     148 B/op	       0 allocs/op
+BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	   10000	    174480 ns/op	  342416 B/op	     116 allocs/op
+BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	 1000000	      1824 ns/op	       5 B/op	       0 allocs/op
+PASS
+ok  	persistent.go/persistent/campaign_persistent	16.073s
