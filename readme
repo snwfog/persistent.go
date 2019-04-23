@@ -21,15 +21,50 @@ commands
 
 results
 
+- N=5000,M=5000
 go test -count=1 -run=XXX -v -benchmem -bench=Campaign ./persistent/campaign_persistent
 goos: darwin
 goarch: amd64
 pkg: persistent.go/persistent/campaign_persistent
-BenchmarkCampaignCopyMap-16                               	    2000	   1180454 ns/op	  342338 B/op	     114 allocs/op
-BenchmarkCampaignCopyList-16                              	    2000	    927673 ns/op	  720896 B/op	       4 allocs/op
-BenchmarkCampaignCopyParallelMap-16                       	    5000	    221213 ns/op	  347434 B/op	     185 allocs/op
-BenchmarkCampaignCopyParallelList-16                      	    5000	    301975 ns/op	  723261 B/op	      70 allocs/op
-BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	   10000	    185038 ns/op	  343291 B/op	     145 allocs/op
-BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	    5000	    370579 ns/op	  723113 B/op	      68 allocs/op
+BenchmarkCampaignCopyMap-16                               	     500	   2542180 ns/op	 1344221 B/op	     474 allocs/op
+BenchmarkCampaignCopyList-16                              	   30000	     42389 ns/op	   24576 B/op	       1 allocs/op
+BenchmarkCampaignCopyParallelMap-16                       	    2000	    723699 ns/op	 1344823 B/op	     478 allocs/op
+BenchmarkCampaignCopyParallelList-16                      	   50000	     33068 ns/op	   24579 B/op	       1 allocs/op
+BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	    5000	   1252608 ns/op	 1344272 B/op	     476 allocs/op
+BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	   50000	     31982 ns/op	   24586 B/op	       1 allocs/op
 PASS
-ok  	persistent.go/persistent/campaign_persistent	28.545s
+ok  	persistent.go/persistent/campaign_persistent	31.372s
+
+- using channels
+go test -count=1 -run=XXX -v -benchmem -bench=Campaign ./persistent/campaign_persistent
+goos: darwin
+goarch: amd64
+pkg: persistent.go/persistent/campaign_persistent
+BenchmarkCampaignCopyMap-16                               	   10000	    162952 ns/op	   86574 B/op	      42 allocs/op
+BenchmarkCampaignCopyList-16                              	   30000	     40616 ns/op	   24576 B/op	       1 allocs/op
+BenchmarkCampaignCopyParallelMap-16                       	   10000	    102931 ns/op	   99529 B/op	     104 allocs/op
+BenchmarkCampaignCopyParallelList-16                      	   50000	     33478 ns/op	   24782 B/op	       7 allocs/op
+BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	   50000	    109399 ns/op	   86862 B/op	      50 allocs/op
+BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	   30000	     34465 ns/op	   24920 B/op	      11 allocs/op
+PASS
+ok  	persistent.go/persistent/campaign_persistent	42.593s
+
+- using mutex
+go test -count=1 -run=XXX -v -benchmem -bench=CampaignCopy ./persistent/campaign_persistent
+goos: darwin
+goarch: amd64
+pkg: persistent.go/persistent/campaign_persistent
+BenchmarkCampaignCopyMap-16                               	   10000	    162923 ns/op	   86584 B/op	      42 allocs/op
+BenchmarkCampaignCopyList-16                              	   30000	     39669 ns/op	   24576 B/op	       1 allocs/op
+BenchmarkCampaignCopyParallelMap-16                       	   20000	     74198 ns/op	   94000 B/op	      76 allocs/op
+BenchmarkCampaignCopyParallelList-16                      	   50000	     34735 ns/op	   24782 B/op	       7 allocs/op
+BenchmarkCampaignCopyParallelMapWithCampaignUpdate-16     	   50000	    109837 ns/op	   86864 B/op	      50 allocs/op
+BenchmarkCampaignCopyParallelListWithCampaignUpdate-16    	   50000	     34082 ns/op	   24782 B/op	       7 allocs/op
+PASS
+ok  	persistent.go/persistent/campaign_persistent	41.575s
+
+
+remarks
+
+- using channel is actually pretty slow
+- using mutex most of time is enough
