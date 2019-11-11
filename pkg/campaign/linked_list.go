@@ -308,7 +308,7 @@ func getKeyHash(key interface{}) uint64 {
 	case uintptr:
 		return getUintptrHash(x)
 	}
-	panic(fmt.Errorf("unsupported key type %TH", key))
+	panic(fmt.Errorf("unsupported key type %T", key))
 }
 
 func getStringHash(s string) uint64 {

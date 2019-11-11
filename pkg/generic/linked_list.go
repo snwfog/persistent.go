@@ -1,7 +1,4 @@
-//go:generate genny -in=$GOFILE -out=../pkg/int/$GOFILE -pkg=int gen "Value=int"
-//go:generate genny -in=$GOFILE -out=../pkg/campaign/$GOFILE -pkg=campaign gen "Value=Campaign"
-
-package linked_list
+package pkg
 
 import (
 	"fmt"
