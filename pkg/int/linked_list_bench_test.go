@@ -1,4 +1,4 @@
-package int_persistent
+package int
 
 import (
   "math/rand"
@@ -8,7 +8,7 @@ import (
   "time"
 )
 
-var contains bool
+var Contains bool
 
 func BenchmarkParallelRead(b *testing.B) {
   threadsCount := 10000
@@ -20,7 +20,7 @@ func BenchmarkParallelRead(b *testing.B) {
   b.RunParallel(func(pb *testing.PB) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
-        contains = dll.Contains(node)
+        Contains = dll.Contains(node)
       }
     }
   })
@@ -53,7 +53,7 @@ func BenchmarkMapParallelRead(b *testing.B) {
     for pb.Next() {
       for i := 0; i < readN; i++ {
         m := mapAccess.Load().(AtomicMap)
-        contains = m[1]
+        Contains = m[1]
       }
     }
   })
@@ -70,7 +70,7 @@ func BenchmarkMapParallelRead(b *testing.B) {
 //     for pb.Next() {
 //       for i := 0; i < readN; i++ {
 //         m := mapAccess.Load().(AtomicMap)
-//         contains = m["A"]
+//         Contains = m["A"]
 //       }
 //     }
 //   })

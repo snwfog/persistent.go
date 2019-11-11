@@ -2,9 +2,7 @@
 // Any changes will be lost if this file is regenerated.
 // see https://github.com/cheekybits/genny
 
-/* go:generate genny -in=$GOFILE -out=./campaign_persistent/$GOFILE -pkg=campaign_persistent gen "Int=Campaign" */
-
-package int_persistent
+package int
 
 import (
 	"errors"
@@ -205,7 +203,7 @@ func (l *linkedlist) Iterator() *iterator {
 	return NewIterator(l)
 }
 
-func (l *linkedlist) CyclicIterator() *cyclicIterator {
+func (l *linkedlist) CyclicIterator() *cycliciterator {
 	return NewCyclicIterator(l)
 }
 
@@ -248,17 +246,17 @@ func (it *iterator) Next() (*node, bool) {
 // endregion
 
 // region CyclicIterator
-type cyclicIterator struct {
+type cycliciterator struct {
 	iterator
 }
 
-func NewCyclicIterator(list *linkedlist) *cyclicIterator {
-	return &cyclicIterator{
+func NewCyclicIterator(list *linkedlist) *cycliciterator {
+	return &cycliciterator{
 		*NewIterator(list),
 	}
 }
 
-func (it *cyclicIterator) Next() (*node, bool) {
+func (it *cycliciterator) Next() (*node, bool) {
 	node, ok := it.iterator.Next()
 
 	if !ok {

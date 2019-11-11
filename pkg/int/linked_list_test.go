@@ -1,4 +1,4 @@
-package int_persistent
+package int
 
 import (
   "runtime"
