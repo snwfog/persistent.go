@@ -26,19 +26,16 @@ func BenchmarkCampaignCopyMap(b *testing.B) {
 
   b.ResetTimer()
 
+  results := make([]*Campaign, 0, 3*M)
   for i := 0; i < b.N; i++ {
-    results := make(map[int]*Campaign, 3*M)
-    for _, c := range regionA {
-      results[c.id*R+0] = c
-    }
-    for _, c := range regionB {
-      results[c.id*R+1] = c
-    }
-    for _, c := range regionC {
-      results[c.id*R+2] = c
+    for j := 0; j < M; j++ {
+      results = append(results, regionA[j])
+      results = append(results, regionB[j])
+      results = append(results, regionC[j])
     }
 
     Result1 = Result1 + len(results)
+    results = results[:0] // Zero out slice
   }
 
   // b.Logf("len: %d", len(results))
@@ -55,9 +52,9 @@ func BenchmarkCampaignCopyLinkedList(b *testing.B) {
 
   for i := 0; i < L; i++ {
     c := &Campaign{id: i}
-    _, _ = regionA.Insert(NewCampaignNode(c.id, c))
-    _, _ = regionB.Insert(NewCampaignNode(c.id, c))
-    _, _ = regionC.Insert(NewCampaignNode(c.id, c))
+    _, _ = regionA.Insert(NewCampaignNode(c.id*R+0, c))
+    _, _ = regionB.Insert(NewCampaignNode(c.id*R+1, c))
+    _, _ = regionC.Insert(NewCampaignNode(c.id*R+2, c))
   }
 
   // b.Logf("len: %d, %d, %d", regionA.Len(), regionB.Len(), regionC.Len())
@@ -66,8 +63,8 @@ func BenchmarkCampaignCopyLinkedList(b *testing.B) {
   itC := regionC.Iterator()
 
   b.ResetTimer()
+  results := make([]*Campaign, 0, 3*L)
   for i := 0; i < b.N; i++ {
-    results := make([]*Campaign, 0, 3*L)
     for n, ok := itA.Next(); ok; n, ok = itA.Next() {
       results = append(results, n.GetCampaign())
     }
@@ -81,6 +78,7 @@ func BenchmarkCampaignCopyLinkedList(b *testing.B) {
     }
 
     Result2 = Result2 + len(results)
+    results = results[:0]
   }
   // b.Logf("len: %d", len(result))
 }
@@ -90,39 +88,30 @@ var Result3 int
 // Write access is synchronized with a mutex
 func BenchmarkCampaignCopyParallelMapLock(b *testing.B) {
   regionA, regionB, regionC := setupregions()
-
   mu := sync.RWMutex{}
-  for i := 0; i < M; i++ {
-    regionA[i*R+0] = &Campaign{id: i*R + 0}
-    regionB[i*R+1] = &Campaign{id: i*R + 1}
-    regionC[i*R+2] = &Campaign{id: i*R + 2}
-  }
-
-  b.SetParallelism(TH)
+  // b.SetParallelism(TH)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
+    results := make([]*Campaign, 0, 3*M)
     for pb.Next() {
-      results := make(map[int]*Campaign, 3*M)
       mu.RLock()
-      for _, c := range regionA {
-        results[c.id*R+0] = c
-      }
-      for _, c := range regionB {
-        results[c.id*R+1] = c
-      }
-      for _, c := range regionC {
-        results[c.id*R+2] = c
+      for j := 0; j < M; j++ {
+        results = append(results, regionA[j])
+        results = append(results, regionB[j])
+        results = append(results, regionC[j])
       }
       mu.RUnlock()
 
       mu.Lock()
       Result3 = Result3 + len(results)
       mu.Unlock()
+      results = results[:0]
     }
   })
 }
 
 var Result4 int
+
 func BenchmarkCampaignCopyParallelList(b *testing.B) {
   regionA := NewCampaignLinkedList()
   regionB := NewCampaignLinkedList()
@@ -130,9 +119,9 @@ func BenchmarkCampaignCopyParallelList(b *testing.B) {
 
   for i := 0; i < L; i++ {
     c := &Campaign{id: i}
-    _, _ = regionA.Insert(NewCampaignNode(c.id, c))
-    _, _ = regionB.Insert(NewCampaignNode(c.id, c))
-    _, _ = regionC.Insert(NewCampaignNode(c.id, c))
+    _, _ = regionA.Insert(NewCampaignNode(c.id*R+0, c))
+    _, _ = regionB.Insert(NewCampaignNode(c.id*R+1, c))
+    _, _ = regionC.Insert(NewCampaignNode(c.id*R+2, c))
   }
 
   mu := sync.Mutex{}
@@ -141,12 +130,11 @@ func BenchmarkCampaignCopyParallelList(b *testing.B) {
   itB := regionB.Iterator()
   itC := regionC.Iterator()
 
-  b.SetParallelism(TH)
+  // b.SetParallelism(TH)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
+    results := make([]*Campaign, 0, L*R)
     for pb.Next() {
-      results := make([]*Campaign, 0, L*R)
-
       for n, ok := itA.Next(); ok; n, ok = itA.Next() {
         results = append(results, n.GetCampaign())
       }
@@ -162,6 +150,8 @@ func BenchmarkCampaignCopyParallelList(b *testing.B) {
       mu.Lock()
       Result4 = Result4 + len(results)
       mu.Unlock()
+
+      results = results[:0]
     }
   })
 }
@@ -183,9 +173,9 @@ func BenchmarkCampaignCopyParallelMapLockWithCampaignInsert(b *testing.B) {
         id := i
         c1, c2, c3 := &Campaign{id: id*R + 0}, &Campaign{id: id*R + 1}, &Campaign{id: id*R + 2}
         mu.Lock()
-        regionA[id*R+0] = c1
-        regionB[id*R+1] = c2
-        regionC[id*R+2] = c3
+        regionA = append(regionA, c1)
+        regionB = append(regionB, c2)
+        regionC = append(regionC, c3)
         mu.Unlock()
         i += 1
       case <-done:
@@ -194,26 +184,23 @@ func BenchmarkCampaignCopyParallelMapLockWithCampaignInsert(b *testing.B) {
     }
   }()
 
-  b.SetParallelism(TH)
+  // b.SetParallelism(TH)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
+    results := make([]*Campaign, 0, 3*M)
     for pb.Next() {
-      results := make(map[int]*Campaign)
       mu.RLock()
-      for _, c := range regionA {
-        results[c.id] = c
-      }
-      for _, c := range regionB {
-        results[c.id] = c
-      }
-      for _, c := range regionC {
-        results[c.id] = c
+      for j := 0; j < M; j++ {
+        results = append(results, regionA[j])
+        results = append(results, regionB[j])
+        results = append(results, regionC[j])
       }
       mu.RUnlock()
 
       mu.Lock()
       Result5 = Result5 + len(results)
       mu.Unlock()
+      results = results[:0]
     }
   })
 
@@ -229,9 +216,9 @@ func BenchmarkCampaignCopyParallelListWithCampaignInsert(b *testing.B) {
 
   for i := 0; i < L; i++ {
     c := &Campaign{id: i * R}
-    _, _ = regionA.Insert(NewCampaignNode(c.id, c))
-    _, _ = regionB.Insert(NewCampaignNode(c.id, c))
-    _, _ = regionC.Insert(NewCampaignNode(c.id, c))
+    _, _ = regionA.Insert(NewCampaignNode(c.id*R+0, c))
+    _, _ = regionB.Insert(NewCampaignNode(c.id*R+1, c))
+    _, _ = regionC.Insert(NewCampaignNode(c.id*R+2, c))
   }
 
   mu := sync.Mutex{}
@@ -258,12 +245,11 @@ func BenchmarkCampaignCopyParallelListWithCampaignInsert(b *testing.B) {
   itB := regionB.Iterator()
   itC := regionC.Iterator()
 
-  b.SetParallelism(TH)
+  // b.SetParallelism(TH)
   b.ResetTimer()
   b.RunParallel(func(pb *testing.PB) {
+    results := make([]*Campaign, 0, L*R)
     for pb.Next() {
-      results := make([]*Campaign, 0, L*R)
-
       for n, ok := itA.Next(); ok; n, ok = itA.Next() {
         results = append(results, n.GetCampaign())
       }
@@ -277,6 +263,8 @@ func BenchmarkCampaignCopyParallelListWithCampaignInsert(b *testing.B) {
       mu.Lock()
       Result6 = Result6 + len(results)
       mu.Unlock()
+
+      results = results[:0]
     }
   })
 
@@ -284,15 +272,15 @@ func BenchmarkCampaignCopyParallelListWithCampaignInsert(b *testing.B) {
 }
 
 // region Private
-func setupregions() (map[int]*Campaign, map[int]*Campaign, map[int]*Campaign) {
-  regionA := make(map[int]*Campaign, M)
-  regionB := make(map[int]*Campaign, M)
-  regionC := make(map[int]*Campaign, M)
+func setupregions() ([]*Campaign, []*Campaign, []*Campaign) {
+  regionA := make([]*Campaign, 0, M)
+  regionB := make([]*Campaign, 0, M)
+  regionC := make([]*Campaign, 0, M)
 
   for i := 0; i < M; i++ {
-    regionA[i*R+0] = &Campaign{id: i*R + 0}
-    regionB[i*R+1] = &Campaign{id: i*R + 1}
-    regionC[i*R+2] = &Campaign{id: i*R + 2}
+    regionA = append(regionA, &Campaign{id: i*R + 0})
+    regionB = append(regionB, &Campaign{id: i*R + 1})
+    regionC = append(regionC, &Campaign{id: i*R + 2})
   }
 
   return regionA, regionB, regionC

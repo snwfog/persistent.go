@@ -8,16 +8,31 @@ motivation
 
 - play with golang pointer and unsafe (gasp!)
 - actually need this and benchmark (see below), over a map+mutex, sync.map, or load/store
-- other implementations found here were too hard to understand
+- other implementations found on github were difficult to understand
 
 caveat
 
 - list is actually a set -> duplicate key not allowed
-- can be modified to store other struct instead of int (see node struct)
 
 commands
 
 - go generate ./internal
+
+results
+
+- Map size=5000, List size=5000
+go test -run=XXX -bench=Benchmark -benchmem -v ./pkg/campaign
+goos: darwin
+goarch: amd64
+pkg: github.com/snwfog/persistent.go/pkg/campaign
+BenchmarkCampaignCopyMap-8                                 	   55994	     21321 ns/op	       2 B/op	       0 allocs/op
+BenchmarkCampaignCopyLinkedList-8                          	100000000	        11.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCampaignCopyParallelMapLock-8                     	   53666	     22340 ns/op	      18 B/op	       0 allocs/op
+BenchmarkCampaignCopyParallelList-8                        	13457457	        86.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCampaignCopyParallelMapLockWithCampaignInsert-8   	   45645	     22960 ns/op	      25 B/op	       0 allocs/op
+BenchmarkCampaignCopyParallelListWithCampaignInsert-8      	13552542	        86.8 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/snwfog/persistent.go/pkg/campaign	10.564s
 
 related
 
@@ -33,18 +48,3 @@ links
 - https://en.wikipedia.org/wiki/Non-blocking_algorithm
 - https://en.wikipedia.org/wiki/Non-blocking_linked_list
 
-results
-
-- Map size=5000, List size=5000
-go test -run=XXX -bench=Benchmark -benchmem -v ./pkg/campaign
-goos: darwin
-goarch: amd64
-pkg: github.com/snwfog/persistent.go/pkg/campaign
-BenchmarkCampaignCopyMap-8                              	     912	   1419511 ns/op	  630817 B/op	       2 allocs/op
-BenchmarkCampaignCopyLinkedList-8                       	   18362	     57565 ns/op	  122881 B/op	       1 allocs/op
-BenchmarkCampaignCopyParallelMap-8                      	    1224	   1086964 ns/op	  635105 B/op	     133 allocs/op
-BenchmarkCampaignCopyParallelList-8                     	   20370	     67158 ns/op	  123225 B/op	       9 allocs/op
-BenchmarkCampaignCopyParallelMapWithCampaignInsert-8    	     800	   1413137 ns/op	 1350338 B/op	     672 allocs/op
-BenchmarkCampaignCopyParallelListWithCampaignInsert-8   	   38337	     33936 ns/op	  123163 B/op	       6 allocs/op
-PASS
-ok  	github.com/snwfog/persistent.go/pkg/campaign	16.146s
