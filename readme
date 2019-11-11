@@ -18,6 +18,19 @@ commands
 
 - go generate ./persistent/linked_list
 
+related
+
+- https://github.com/cornelk/go-benchmark
+- https://github.com/zond/gotomic
+- https://sourcegraph.com/github.com/jserv/concurrent-ll@master
+
+links
+
+- http://www.rossbencina.com/code/lockfree
+- http://15418.courses.cs.cmu.edu/spring2013/article/46
+- https://preshing.com/20120612/an-introduction-to-lock-free-programming/
+- https://en.wikipedia.org/wiki/Non-blocking_algorithm
+- https://en.wikipedia.org/wiki/Non-blocking_linked_list
 
 results
 

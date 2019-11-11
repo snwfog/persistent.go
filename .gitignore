@@ -1,4 +1,5 @@
 docs
+vendor
 
 # Created by .ignore support plugin (hsz.mobi)
 ### Go template
@@ -14,4 +15,3 @@ docs
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-
