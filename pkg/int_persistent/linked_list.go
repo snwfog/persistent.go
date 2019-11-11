@@ -23,81 +23,81 @@ var (
 	// freenode = unsafe.Pointer(new(int))
 )
 
-func NewIntLinkedList() *LinkedList {
-	// head := &sentinel{IntNode{valueptr: -2}}
-	// tail := &sentinel{IntNode{valueptr: -1}}
-	head := &sentinel{IntNode{}}
-	tail := &sentinel{IntNode{}}
+func NewIntLinkedList() *linkedlist {
+	// head := &sentinel{node{valueptr: -2}}
+	// tail := &sentinel{node{valueptr: -1}}
+	head := &sentinel{node{}}
+	tail := &sentinel{node{}}
 
 	head.next = unsafe.Pointer(tail)
-	return &LinkedList{
+	return &linkedlist{
 		head: unsafe.Pointer(head),
 		tail: unsafe.Pointer(tail),
 	}
 }
 
 // region Node
-func NewIntNode(key interface{}, valueptr *int) *IntNode {
-	return &IntNode{
+func NewIntNode(key interface{}, valueptr *int) *node {
+	return &node{
 		valueptr: unsafe.Pointer(valueptr),
 		key:      getKeyHash(key),
 	}
 }
 
-func NewBuiltinIntNode(value int) *IntNode {
+func NewBuiltinIntNode(value int) *node {
 	return NewIntNode(value, &value)
 }
 
-type IntNode struct {
+type node struct {
 	key      uint64
 	valueptr unsafe.Pointer
 	next     unsafe.Pointer // What if GC runs?
 }
 
-func (n *IntNode) Next() *IntNode {
-	return (*IntNode)(atomic.LoadPointer(&n.next))
+func (n *node) Next() *node {
+	return (*node)(atomic.LoadPointer(&n.next))
 }
 
-func (n *IntNode) GetInt() *int {
+func (n *node) GetInt() *int {
 	return (*int)(atomic.LoadPointer(&n.valueptr))
 }
 
-func (n *IntNode) GetBuiltinInt() int {
+func (n *node) GetBuiltinInt() int {
 	return *(n.GetInt())
 }
 
-func (n *IntNode) nextptr() unsafe.Pointer {
+func (n *node) nextptr() unsafe.Pointer {
 	return atomic.LoadPointer(&n.next)
 }
 
 type sentinel struct {
-	IntNode
+	node
 }
 
 // endregion
 
-// region LinkedList
-type LinkedList struct {
+// region linkedlist
+type linkedlist struct {
 	head unsafe.Pointer
 	tail unsafe.Pointer
 
 	len int32
 }
 
-func (l *LinkedList) Len() int {
+func (l *linkedlist) Len() int {
 	return int(atomic.LoadInt32(&l.len))
 }
 
-func (l *LinkedList) Head() *IntNode {
-	return (*IntNode)(atomic.LoadPointer(&l.head))
+func (l *linkedlist) Head() *node {
+	return (*node)(atomic.LoadPointer(&l.head))
 }
 
-func (l *LinkedList) Tail() *IntNode {
-	return (*IntNode)(atomic.LoadPointer(&l.tail))
+func (l *linkedlist) Tail() *node {
+	return (*node)(atomic.LoadPointer(&l.tail))
 }
 
-func (l *LinkedList) Insert(v *IntNode) (bool, error) {
-	var left, right *IntNode
+func (l *linkedlist) Insert(v *node) (bool, error) {
+	var left, right *node
 	for {
 		left, right = l.search(v.key)
 
@@ -113,7 +113,7 @@ func (l *LinkedList) Insert(v *IntNode) (bool, error) {
 	}
 }
 
-func (l *LinkedList) Upsert(v *IntNode) (bool, error) {
+func (l *linkedlist) Upsert(v *node) (bool, error) {
 	_, right := l.search(v.key)
 	if right != l.Tail() && right.key == v.key {
 		atomic.StorePointer(&right.valueptr, v.valueptr)
@@ -123,8 +123,8 @@ func (l *LinkedList) Upsert(v *IntNode) (bool, error) {
 	return l.Insert(v)
 }
 
-func (l *LinkedList) Delete(v *IntNode) (bool, error) {
-	var right *IntNode
+func (l *linkedlist) Delete(v *node) (bool, error) {
+	var right *node
 	var rightnext unsafe.Pointer
 
 	for {
@@ -149,8 +149,8 @@ func (l *LinkedList) Delete(v *IntNode) (bool, error) {
 	return true, nil
 }
 
-func (l *LinkedList) search(key uint64) (left, right *IntNode) {
-	var leftnext *IntNode
+func (l *linkedlist) search(key uint64) (left, right *node) {
+	var leftnext *node
 
 	for {
 		prev := l.Head()
@@ -159,10 +159,10 @@ func (l *LinkedList) search(key uint64) (left, right *IntNode) {
 		for {
 			if !marked(currptr) {
 				left = prev
-				leftnext = (*IntNode)(currptr)
+				leftnext = (*node)(currptr)
 			}
 
-			prev = (*IntNode)(unmark(currptr))
+			prev = (*node)(unmark(currptr))
 			if prev == l.Tail() {
 				break
 			}
@@ -192,7 +192,7 @@ func (l *LinkedList) search(key uint64) (left, right *IntNode) {
 	}
 }
 
-func (l *LinkedList) Contains(n *IntNode) bool {
+func (l *linkedlist) Contains(n *node) bool {
 	_, right := l.search(n.key)
 	if right == l.Tail() || right.key != n.key {
 		return false
@@ -201,30 +201,30 @@ func (l *LinkedList) Contains(n *IntNode) bool {
 	return true
 }
 
-func (l *LinkedList) Iterator() *iterator {
+func (l *linkedlist) Iterator() *iterator {
 	return NewIterator(l)
 }
 
-func (l *LinkedList) CyclicIterator() *cyclicIterator {
+func (l *linkedlist) CyclicIterator() *cyclicIterator {
 	return NewCyclicIterator(l)
 }
 
 // endregion
 
-// region Iterators
+// region Iterator
 type iterator struct {
-	curr *IntNode
-	list *LinkedList
+	curr *node
+	list *linkedlist
 }
 
-func NewIterator(list *LinkedList) *iterator {
+func NewIterator(list *linkedlist) *iterator {
 	return &iterator{
 		list: list,
 		curr: list.Head(),
 	}
 }
 
-func (it *iterator) Next() (*IntNode, bool) {
+func (it *iterator) Next() (*node, bool) {
 	if it.curr == it.list.Head() {
 		it.curr = it.curr.Next()
 	}
@@ -235,7 +235,7 @@ func (it *iterator) Next() (*IntNode, bool) {
 		}
 
 		n, nextptr := it.curr, it.curr.nextptr()
-		it.curr = (*IntNode)(unmark(nextptr))
+		it.curr = (*node)(unmark(nextptr))
 
 		if marked(nextptr) {
 			continue
@@ -252,13 +252,13 @@ type cyclicIterator struct {
 	iterator
 }
 
-func NewCyclicIterator(list *LinkedList) *cyclicIterator {
+func NewCyclicIterator(list *linkedlist) *cyclicIterator {
 	return &cyclicIterator{
 		*NewIterator(list),
 	}
 }
 
-func (it *cyclicIterator) Next() (*IntNode, bool) {
+func (it *cyclicIterator) Next() (*node, bool) {
 	node, ok := it.iterator.Next()
 
 	if !ok {
@@ -334,11 +334,11 @@ func getUintptrHash(num uintptr) uint64 {
 	return siphash.Hash(sipHashKey1, sipHashKey2, buf)
 }
 
-func use(params ...interface{}) {
-	for _, val := range params {
-		_ = val
-	}
-}
+// func use(params ...interface{}) {
+// 	for _, val := range params {
+// 		_ = val
+// 	}
+// }
 
 func marked(ptr unsafe.Pointer) bool {
 	return (uintptr(ptr) & 0x1) > 0
