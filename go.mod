@@ -1,4 +1,4 @@
-module persistent.go
+module github.com/snwfog/persistent.go
 
 go 1.13
 
