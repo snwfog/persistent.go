@@ -1,5 +1,5 @@
-//go:generate genny -in=$GOFILE -out=./int_persistent/$GOFILE -pkg=int_persistent gen "Value=int"
-//go:generate genny -in=$GOFILE -out=./campaign_persistent/$GOFILE -pkg=campaign_persistent gen "Value=Campaign"
+//go:generate genny -in=$GOFILE -out=../pkg/int_persistent/$GOFILE -pkg=int_persistent gen "Value=int"
+/* go:generate genny -in=$GOFILE -out=./campaign_persistent/$GOFILE -pkg=campaign_persistent gen "Value=Campaign" */
 
 package linked_list
 
@@ -21,9 +21,7 @@ var (
 	// freenode = unsafe.Pointer(new(int))
 )
 
-type (
-	Value generic.Type
-)
+type Value generic.Type
 
 func NewValueLinkedList() *LinkedList {
 	// head := &sentinel{ValueNode{valueptr: -2}}

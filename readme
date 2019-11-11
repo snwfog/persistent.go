@@ -1,7 +1,8 @@
 persistent.go
 
 - lockfree linked-list
-- lockfree queue (coming)
+- lockfree queue (todo)
+- gc to clean up resources (todo)
 
 motivation
 
@@ -16,7 +17,7 @@ caveat
 
 commands
 
-- go generate ./persistent/linked_list
+- go generate ./internal
 
 related
 

@@ -2,6 +2,8 @@
 // Any changes will be lost if this file is regenerated.
 // see https://github.com/cheekybits/genny
 
+/* go:generate genny -in=$GOFILE -out=./campaign_persistent/$GOFILE -pkg=campaign_persistent gen "Int=Campaign" */
+
 package int_persistent
 
 import (
@@ -20,8 +22,6 @@ var (
 	// deleteerr = errors.New("delete failed")
 	// freenode = unsafe.Pointer(new(int))
 )
-
-type ()
 
 func NewIntLinkedList() *LinkedList {
 	// head := &sentinel{IntNode{valueptr: -2}}
