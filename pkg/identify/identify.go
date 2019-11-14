@@ -1,5 +1,5 @@
 package identify
 
 type Identify interface{
-	ID() uint64
+	Identity() uint64
 }

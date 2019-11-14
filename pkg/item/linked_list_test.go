@@ -1,4 +1,4 @@
-package int
+package item
 
 import (
 	"runtime"
@@ -6,38 +6,30 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/snwfog/persistent.go/pkg"
 )
 
 func TestCreate(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 	assert.Equal(t, 0, ll.Len())
-	assert.NotNil(t, ll.Head())
-	assert.NotNil(t, ll.Tail())
-	assert.False(t, ll.Head() == ll.Tail())
+	assert.NotNil(t, ll.headnode())
+	assert.NotNil(t, ll.tailnode())
+	assert.False(t, ll.headnode() == ll.tailnode())
 }
 
 func TestInsertUniqueOnly(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 
-	// n1, n2 := NewIntNode(1), NewIntNode(1)
-	// t.Logf("%d, %d", n1.key, n2.key)
-
-	a := 1
-	_, _ = ll.Insert(pkg.NewIntNode(&a))
+	_, _ = ll.Insert(&Item{Id: 1})
 	assert.Equal(t, 1, ll.Len())
 
-	b := 2
-	_, _ = ll.Insert(pkg.NewIntNode(&b))
+	_, _ = ll.Insert(&Item{Id: 1})
 	assert.Equal(t, 1, ll.Len())
 }
 
 func TestInsert1(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 
-	a, b := 1, 2
-	n1, n2 := pkg.NewIntNode(&a), pkg.NewIntNode(&b)
+	n1, n2 := &Item{Id: 1}, &Item{Id: 2}
 	// t.Logf("%d, %d", n1.key, n2.key)
 
 	_, _ = ll.Insert(n1)
@@ -48,9 +40,9 @@ func TestInsert1(t *testing.T) {
 }
 
 func TestInsert2(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
-	a, b, c := 1, 2, 3
-	n1, n2, n3 := pkg.NewIntNode(&a), pkg.NewIntNode(&b), pkg.NewIntNode(&c)
+	ll := NewItemLinkedList()
+	n1, n2 := &Item{Id: 1}, &Item{Id: 2}
+	n3 := &Item{Id: 3}
 
 	_, _ = ll.Insert(n1)
 	_, _ = ll.Insert(n2)
@@ -60,13 +52,13 @@ func TestInsert2(t *testing.T) {
 }
 
 func TestConcurrentInsert1(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 	p := runtime.NumCPU()
 	n := 1 << 10
 
 	// nodes := make([]*node, 0, n)
 	// for i := 0; i < n; i++ {
-	//   nodes = append(nodes, NewIntNode(i))
+	//   nodes = append(nodes, i)
 	// }
 
 	wg := sync.WaitGroup{}
@@ -75,8 +67,7 @@ func TestConcurrentInsert1(t *testing.T) {
 	for i := 0; i < p; i += 1 {
 		go func() {
 			for j := 0; j < n; j++ {
-				a := j
-				_, _ = ll.Insert(pkg.NewIntNode(&a))
+				_, _ = ll.Insert(&Item{Id: j})
 			}
 			wg.Done()
 		}()
@@ -89,7 +80,7 @@ func TestConcurrentInsert1(t *testing.T) {
 	it := ll.Iterator()
 	var sum int
 	for v, ok := it.Next(); ok; v, ok = it.Next() {
-		sum += *v
+		sum += v.Id
 	}
 
 	assert.Equal(t, (n-1)*n/2, sum)
@@ -124,7 +115,7 @@ func TestConcurrentInsert1(t *testing.T) {
 // }
 
 func TestConcurrentInsertDelete1(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 	n := 1 << 10
 	workChan := make(chan int)
 
@@ -133,8 +124,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 
 	go func() {
 		for j := 0; j < n; j++ {
-			a := j
-			node := pkg.NewIntNode(&a)
+			node := &Item{Id: j}
 			_, _ = ll.Insert(node)
 
 			if j%2 == 0 {
@@ -147,8 +137,7 @@ func TestConcurrentInsertDelete1(t *testing.T) {
 
 	go func() {
 		for i := range workChan {
-			a := i
-			node := pkg.NewIntNode(&a)
+			node := &Item{Id: i}
 			_, _ = ll.Delete(node)
 		}
 
@@ -165,7 +154,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
 	pc := 100
 	// pc := 20000
 
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 	channel := make(chan int)
 	doneChan := make(chan int)
 
@@ -176,8 +165,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
 	for i := 0; i < pc; i++ {
 		go func() {
 			for j := 0; j < n; j++ {
-				a := j
-				_, _ = ll.Insert(pkg.NewIntNode(&a))
+				_, _ = ll.Insert(&Item{Id: j})
 				// t.Logf("p[1] %d, hash %d", k, n.key)
 				if j%2 == 0 {
 					channel <- j
@@ -191,8 +179,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
 	// Consumers
 	go func() {
 		for j := range channel {
-			a := j
-			_, _ = ll.Delete(pkg.NewIntNode(&a))
+			_, _ = ll.Delete(&Item{Id: j})
 			// t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, ll.Len(), ok)
 		}
 
@@ -211,9 +198,9 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
 
 	var sum int
 	for n, ok := it.Next(); ok; n, ok = it.Next() {
-		sum += *n
-		if (*n)%2 == 0 {
-			t.Logf("value: %d!", n)
+		sum += n.Id
+		if n.Id%2 == 0 {
+			t.Logf("value: %d!", n.Id)
 		}
 	}
 
@@ -231,13 +218,12 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
 	}
 
 	doneChan := make(chan int)
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 
 	// Producers
 	go func() {
 		for j := 0; j < n; j++ {
-			a := j
-			_, _ = ll.Insert(pkg.NewIntNode(&a))
+			_, _ = ll.Insert(&Item{Id: j})
 			// t.Logf("p[1] %d, hash %d", k, n.key)
 			if j%2 == 0 {
 				for k := 0; k < pc; k++ {
@@ -255,8 +241,7 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
 	for i := 0; i < pc; i++ {
 		go func(k int) {
 			for j := range channels[k] {
-				a := j
-				_, _ = ll.Delete(pkg.NewIntNode(&a))
+				_, _ = ll.Delete(&Item{Id: j})
 				// t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, ll.Len(), ok)
 			}
 
@@ -273,9 +258,9 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
 
 	var sum int
 	for n, ok := it.Next(); ok; n, ok = it.Next() {
-		sum += *n
-		if (*n)%2 == 0 {
-			t.Logf("value: %d!", n)
+		sum += n.Id
+		if n.Id%2 == 0 {
+			t.Logf("value: %d!", n.Id)
 		}
 	}
 
@@ -293,14 +278,13 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 	}
 
 	doneChan := make(chan int)
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 
 	// Producers
 	for i := 0; i < pc; i++ {
 		go func(k int) {
 			for j := 0; j < n; j++ {
-				a := j
-				_, _ = ll.Insert(pkg.NewIntNode(&a))
+				_, _ = ll.Insert(&Item{Id: j})
 				// t.Logf("p[1] %d, hash %d", k, n.key)
 				if j%2 == 0 {
 					channels[k] <- j
@@ -315,8 +299,7 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 	for i := 0; i < pc; i++ {
 		go func(k int) {
 			for j := range channels[k] {
-				a := j
-				_, _ = ll.Delete(pkg.NewIntNode(&a))
+				_, _ = ll.Delete(&Item{Id: j})
 				// t.Logf("c[1] %d, hash %d, len: %d, ok: %v", k, n.key, ll.Len(), ok)
 			}
 
@@ -333,9 +316,9 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 
 	var sum int
 	for n, ok := it.Next(); ok; n, ok = it.Next() {
-		sum += *n
-		if (*n)%2 == 0 {
-			t.Logf("value: %d!", n)
+		sum += n.Id
+		if n.Id%2 == 0 {
+			t.Logf("value: %d!", n.Id)
 		}
 	}
 
@@ -344,47 +327,46 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 }
 
 func TestUpsert(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 	a := 1
-	ok, err := ll.Delete(pkg.NewIntNode(&a))
+	ok, err := ll.Delete(&Item{Id: a})
 	assert.False(t, ok)
 	assert.Nil(t, err)
 
-	_, _ = ll.Insert(pkg.NewIntNode(&a))
+	_, _ = ll.Insert(&Item{Id: a})
 	assert.Equal(t, ll.Len(), 1)
 
-	ok, err = ll.Upsert(pkg.NewIntNode(&a))
+	ok, err = ll.Upsert(&Item{Id: a})
 	assert.True(t, ok)
 	assert.Nil(t, err)
 	assert.Equal(t, ll.Len(), 1)
 
-	ok, err = ll.Upsert(pkg.NewIntNode(&a))
+	ok, err = ll.Upsert(&Item{Id: a})
 	assert.True(t, ok)
 	assert.Nil(t, err)
 	assert.Equal(t, ll.Len(), 1)
 
-	ok, err = ll.Delete(pkg.NewIntNode(&a))
+	ok, err = ll.Delete(&Item{Id: a})
 	assert.True(t, ok)
 	assert.Nil(t, err)
 	assert.Equal(t, ll.Len(), 0)
 }
 
 func TestDelete(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 
-	a := 1
-	ok, err := ll.Delete(pkg.NewIntNode(&a))
+	ok, err := ll.Delete(&Item{Id: 1})
 	assert.False(t, ok)
 	assert.Nil(t, err)
 
-	_, _ = ll.Insert(pkg.NewIntNode(&a))
+	_, _ = ll.Insert(&Item{Id: 1})
 	assert.Equal(t, ll.Len(), 1)
 
-	ok, err = ll.Delete(pkg.NewIntNode(&a))
+	ok, err = ll.Delete(&Item{Id: 1})
 	assert.True(t, ok)
 	assert.Nil(t, err)
 
-	ok, err = ll.Delete(pkg.NewIntNode(&a))
+	ok, err = ll.Delete(&Item{Id: 1})
 	assert.False(t, ok)
 	assert.Nil(t, err)
 
@@ -392,13 +374,12 @@ func TestDelete(t *testing.T) {
 }
 
 func TestConcurrentDelete1(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
+	ll := NewItemLinkedList()
 	p := runtime.NumCPU()
 	n := 1 << 10
 
 	for i := 0; i < n; i++ {
-		a := i
-		_, _ = ll.Insert(pkg.NewIntNode(&a))
+		_, _ = ll.Insert(&Item{Id: i})
 	}
 
 	wg := sync.WaitGroup{}
@@ -407,8 +388,7 @@ func TestConcurrentDelete1(t *testing.T) {
 	for i := 0; i < p; i += 1 {
 		go func() {
 			for j := 0; j < n; j++ {
-				a := j
-				_, _ = ll.Delete(pkg.NewIntNode(&a))
+				_, _ = ll.Delete(&Item{Id: j})
 			}
 			wg.Done()
 		}()
@@ -421,7 +401,7 @@ func TestConcurrentDelete1(t *testing.T) {
 	it := ll.Iterator()
 	var sum int
 	for n, ok := it.Next(); ok; n, ok = it.Next() {
-		sum += *n
+		sum += n.Id
 	}
 
 	assert.Equal(t, 0, sum)
@@ -429,14 +409,15 @@ func TestConcurrentDelete1(t *testing.T) {
 
 // region Plumbing
 func TestMarkDeleteTest1(t *testing.T) {
-	ll := pkg.NewIntLinkedList()
-	a := 1
-	n := pkg.NewIntNode(&a)
-	_, _ = ll.Insert(n)
-	t.Logf("%+v", ll.Head().nextptr())
+	ll := NewItemLinkedList()
+	item := &Item{Id: 1}
+	_, _ = ll.Insert(item)
+	t.Logf("%+v", ll.headnode().nextptr())
 	// set n to be deleted
-	n.next = pkg.deletemark(n.next)
-	assert.False(t, ll.Contains(n))
+
+	n := (*node)(ll.headnode().next)
+	n.next = deletemark(n.next)
+	assert.False(t, ll.Contains(item))
 }
 
 // endregion

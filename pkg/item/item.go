@@ -9,6 +9,6 @@ type Item struct {
 	AccessCount *atomic.Int64
 }
 
-func (it *Item) ID() uint64 {
+func (it *Item) Identity() uint64 {
 	return uint64(it.Id)
 }

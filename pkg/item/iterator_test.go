@@ -2,21 +2,69 @@ package item
 
 import (
 	"context"
+	"sort"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/snwfog/persistent.go"
 )
 
-func TestCyclicIterator1(t *testing.T) {
-	dll := main.NewItemLinkedList()
+func TestIterator1(t *testing.T) {
+	ll := NewItemLinkedList()
+	_, _ = ll.Insert(&Item{Id: 1})
+	_, _ = ll.Insert(&Item{Id: 2})
+	_, _ = ll.Insert(&Item{Id: 3})
+
+	it := ll.Iterator()
+	for n, ok := it.Next(); ok; n, ok = it.Next() {
+		t.Log(*n)
+	}
+
+	it = ll.Iterator()
+	n, ok := it.Next()
+	assert.True(t, ok)
+	assert.Equal(t, 1, n.Id)
+
+	n, ok = it.Next()
+	assert.True(t, ok)
+	assert.Equal(t, 2, n.Id)
+
+	n, ok = it.Next()
+	assert.True(t, ok)
+	assert.Equal(t, 3, n.Id)
+}
+
+func TestIterator2(t *testing.T) {
+	ll := NewItemLinkedList()
+	_, _ = ll.Insert(&Item{Id: 1})
+	_, _ = ll.Insert(&Item{Id: 2})
+	_, _ = ll.Insert(&Item{Id: 3})
+
+	it := ll.Iterator()
 
 	for i := 0; i < 3; i++ {
-		item := &main.Item{Id: i, AccessCount: atomic.NewInt64(0)}
-		_, _ = dll.Insert(main.NewItemNode(item))
+		n, ok := it.Next()
+		assert.True(t, ok)
+		assert.Equal(t, i+1, n.Id)
+	}
+
+	node, ok := it.Next()
+	assert.False(t, ok)
+	assert.Nil(t, node)
+
+	node, ok = it.Next()
+	assert.False(t, ok)
+	assert.Nil(t, node)
+}
+
+func TestCyclicIterator1(t *testing.T) {
+	dll := NewItemLinkedList()
+
+	for i := 0; i < 3; i++ {
+		item := &Item{Id: i, AccessCount: atomic.NewInt64(0)}
+		_, _ = dll.Insert(item)
 	}
 
 	it := dll.CyclicIterator()
@@ -54,19 +102,73 @@ func TestCyclicIterator1(t *testing.T) {
 	assert.Equal(t, 0, n111.Id)
 }
 
-func TestConcurrentCyclicIterator(t *testing.T) {
-	list := main.NewItemLinkedList()
-	cit := list.CyclicIterator()
-	for i := 0; i < 10; i++ {
-		item := &main.Item{Id: i, AccessCount: atomic.NewInt64(0)}
-		_, _ = list.Insert(main.NewItemNode(item))
+func TestConcurrentIterator(t *testing.T) {
+	ll := NewItemLinkedList()
+	const M = 1000   // Number of workers
+	const N = 100000 // Number of items
+
+	items := make([]*Item, 0, N)
+	for i := 0; i < N; i++ {
+		items = append(items, &Item{Id: i})
 	}
 
-	runs := int64(1000 * 1000 * 1000)
+	for i := 0; i < N; i++ {
+		_, _ = ll.Insert(items[i])
+	}
+
+	for i := 0; i < N; i++ {
+		assert.True(t, ll.Contains(items[i]))
+	}
+	assert.Equal(t, N, ll.Len())
+
+	var mu sync.Mutex
+	ids := make([]int, 0, N)
+	it := ll.Iterator()
+	g, _ := errgroup.WithContext(context.Background())
+	var worker [M]int
+	for range worker {
+		g.Go(func() error {
+			for i := 0; i < N/M; i++ {
+				item, ok := it.Next()
+				if !ok {
+					return nil
+				}
+
+				mu.Lock()
+				ids = append(ids, item.Id)
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Error(err)
+	}
+
+	assert.Len(t, ids, N)
+	sort.Ints(ids)
+	equals := true
+	for i := 0; i < N; i++ {
+		equals = equals && i == ids[i]
+	}
+}
+
+func TestConcurrentCyclicIterator(t *testing.T) {
+	list := NewItemLinkedList()
+	cit := list.CyclicIterator()
+
+	for i := 0; i < 10; i++ {
+		item := &Item{Id: i, AccessCount: atomic.NewInt64(0)}
+		_, _ = list.Insert(item)
+	}
+
+	runs := int64(10 * 1000 * 1000)
 	N := atomic.NewInt64(runs)
+	const M = 10
 	g, _ := errgroup.WithContext(context.Background())
 
-	var worker [10]int // Do cit with 10 workers
+	var worker [M]int // Do cit with 10 workers
 	for range worker {
 		g.Go(func() error {
 			for N.Load() > 0 {
@@ -91,9 +193,12 @@ func TestConcurrentCyclicIterator(t *testing.T) {
 		t.FailNow()
 	}
 
+	e := 0.000001
 	it := list.Iterator()
 	for n, ok := it.Next(); ok; n, ok = it.Next() {
-		percentusage := float64(n.AccessCount.Load()) / float64(N.Load())
+		percentusage := float64(n.AccessCount.Load()) / float64(runs)
 		t.Log(percentusage)
+		assert.True(t, percentusage >= (1/float64(M) - e))
+		assert.True(t, percentusage <= (1/float64(M) + e))
 	}
 }

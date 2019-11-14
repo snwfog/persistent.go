@@ -1,16 +1,14 @@
-package int
+package item
 
 import (
 	"testing"
 
-	"github.com/snwfog/persistent.go/pkg"
 )
 
 func BenchmarkCyclicIterator(b *testing.B) {
-	list := pkg.NewIntLinkedList()
+	list := NewItemLinkedList()
 	for i := 0; i < 10; i++ {
-		n := i
-		_, _ = list.Insert(pkg.NewIntNode(&n))
+		_, _ = list.Insert(&Item{Id: i})
 	}
 
 	citr := list.CyclicIterator()

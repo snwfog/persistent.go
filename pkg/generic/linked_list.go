@@ -12,6 +12,7 @@ import (
 	"github.com/dchest/siphash"
 
 	"github.com/snwfog/persistent.go/pkg/identify"
+	"github.com/snwfog/persistent.go/pkg/util"
 )
 
 var (
@@ -32,10 +33,10 @@ func NewValueLinkedList() *linkedlist {
 }
 
 // region Node
-func NewValueNode(valueptr *Value) *node {
+func newnode(valueptr *Value) *node {
 	return &node{
 		valueptr: unsafe.Pointer(valueptr),
-		key:      getKeyHash(valueptr),
+		key:      getid(valueptr),
 	}
 }
 
@@ -45,12 +46,12 @@ type node struct {
 	next     unsafe.Pointer // What if GC runs?
 }
 
-func (n *node) Next() *node {
-	return (*node)(atomic.LoadPointer(&n.next))
+func (n *node) value() *Value {
+	return (*Value)(atomic.LoadPointer(&n.valueptr))
 }
 
-func (n *node) GetValue() *Value {
-	return (*Value)(atomic.LoadPointer(&n.valueptr))
+func (n *node) nextnode() *node {
+	return (*node)(atomic.LoadPointer(&n.next))
 }
 
 func (n *node) nextptr() unsafe.Pointer {
@@ -75,48 +76,51 @@ func (l *linkedlist) Len() int {
 	return int(atomic.LoadInt32(&l.len))
 }
 
-func (l *linkedlist) Head() *node {
+func (l *linkedlist) headnode() *node {
 	return (*node)(atomic.LoadPointer(&l.head))
 }
 
-func (l *linkedlist) Tail() *node {
+func (l *linkedlist) tailnode() *node {
 	return (*node)(atomic.LoadPointer(&l.tail))
 }
 
-func (l *linkedlist) Insert(v *node) (bool, error) {
+func (l *linkedlist) Insert(v *Value) (bool, error) {
+	n := newnode(v)
 	var left, right *node
 	for {
-		left, right = l.search(v.key)
+		left, right = l.search(n.key)
 
-		if right != l.Tail() && right.key == v.key {
+		if right != l.tailnode() && right.key == n.key {
 			return false, inserterr
 		}
 
-		v.next = unsafe.Pointer(right)
-		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), unsafe.Pointer(v)) {
+		n.next = unsafe.Pointer(right)
+		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), unsafe.Pointer(n)) {
 			atomic.AddInt32(&l.len, 1)
 			return true, nil
 		}
 	}
 }
 
-func (l *linkedlist) Upsert(v *node) (bool, error) {
-	_, right := l.search(v.key)
-	if right != l.Tail() && right.key == v.key {
-		atomic.StorePointer(&right.valueptr, v.valueptr)
+func (l *linkedlist) Upsert(v *Value) (bool, error) {
+	n := newnode(v)
+	_, right := l.search(n.key)
+	if right != l.tailnode() && right.key == n.key {
+		atomic.StorePointer(&right.valueptr, n.valueptr)
 		return true, nil
 	}
 
 	return l.Insert(v)
 }
 
-func (l *linkedlist) Delete(v *node) (bool, error) {
+func (l *linkedlist) Delete(v *Value) (bool, error) {
 	var right *node
 	var rightnext unsafe.Pointer
 
+	key := getid(v)
 	for {
-		_, right = l.search(v.key)
-		if right == l.Tail() || right.key != v.key {
+		_, right = l.search(key)
+		if right == l.tailnode() || right.key != key {
 			return false, nil // not deleted cause not found
 		}
 
@@ -144,7 +148,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 	var leftnext *node
 
 	for {
-		curr := l.Head()
+		curr := l.headnode()
 		next := curr.nextptr()
 
 		// find left and right node
@@ -156,8 +160,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 			}
 
 			curr = (*node)(deleteunmark(next))
-
-			if curr == l.Tail() {
+			if curr == l.tailnode() {
 				break
 			}
 
@@ -170,7 +173,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 		// check if left right are adjacent
 		right = curr
 		if leftnext == right {
-			if right != l.Tail() && deletemarked(right.nextptr()) {
+			if right != l.tailnode() && deletemarked(right.nextptr()) {
 				continue
 			}
 
@@ -178,7 +181,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 		}
 
 		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(leftnext), unsafe.Pointer(right)) {
-			if right != l.Tail() && deletemarked(right.nextptr()) {
+			if right != l.tailnode() && deletemarked(right.nextptr()) {
 				continue
 			}
 
@@ -187,9 +190,10 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 	}
 }
 
-func (l *linkedlist) Contains(n *node) bool {
-	_, right := l.search(n.key)
-	if right == l.Tail() || right.key != n.key {
+func (l *linkedlist) Contains(v *Value) bool {
+	key := getid(v)
+	_, right := l.search(key)
+	if right == l.tailnode() || right.key != key {
 		return false
 	}
 
@@ -208,14 +212,14 @@ func (l *linkedlist) CyclicIterator() *cycliciterator {
 
 // region Iterator
 type iterator struct {
-	curr *node
+	curr unsafe.Pointer
 	list *linkedlist
 }
 
 func NewIterator(list *linkedlist) *iterator {
 	return &iterator{
+		curr: unsafe.Pointer(list.headnode()),
 		list: list,
-		curr: list.Head(),
 	}
 }
 
@@ -225,27 +229,29 @@ func (it *iterator) Next() (*Value, bool) {
 		return nil, ok
 	}
 
-	return n.GetValue(), ok
+	return n.value(), ok
 }
 
 func (it *iterator) nextnode() (*node, bool) {
-	if it.curr == it.list.Head() {
-		it.curr = it.curr.Next()
-	}
-
 	for {
-		if it.curr == it.list.Tail() {
+		curr := (*node)(it.curr)
+		if curr == it.list.tailnode() {
 			return nil, false
 		}
 
-		n, nextptr := it.curr, it.curr.nextptr()
-		it.curr = (*node)(deleteunmark(nextptr))
+		next := curr.nextptr()
+		nextnode := (*node)(next)
+		if atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), next) {
+			if nextnode == it.list.tailnode() {
+				return nil, false
+			}
 
-		if deletemarked(nextptr) {
-			continue
+			if deletemarked(next) {
+				continue
+			}
+
+			return nextnode, true
 		}
-
-		return n, true
 	}
 }
 
@@ -253,23 +259,52 @@ func (it *iterator) nextnode() (*node, bool) {
 
 // region CyclicIterator
 type cycliciterator struct {
-	iterator
+	curr unsafe.Pointer
+	list *linkedlist
 }
 
 func NewCyclicIterator(list *linkedlist) *cycliciterator {
 	return &cycliciterator{
-		*NewIterator(list),
+		curr: unsafe.Pointer(list.headnode()),
+		list: list,
 	}
 }
 
 func (it *cycliciterator) Next() (*Value, bool) {
-	v, ok := it.iterator.Next()
+	n, ok := it.nextnode()
 	if !ok {
-		it.curr = it.list.Head()
-		return it.iterator.Next()
+		return nil, ok
 	}
 
-	return v, ok
+	return n.value(), ok
+}
+
+func (it *cycliciterator) nextnode() (*node, bool) {
+	for {
+		curr := (*node)(it.curr)
+		if curr == it.list.tailnode() {
+			return nil, false
+		}
+
+		next := curr.nextptr()
+		nextnode := (*node)(next)
+		if atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), next) {
+			if nextnode == it.list.tailnode() {
+				head := unsafe.Pointer(it.list.headnode())
+				// Try to swap to head
+				// We don't care if its sucesssful or not
+				// If its successful, next run will grab the next node
+				// If it fails, means some thread already swapped, we rerun to grab next
+				atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), head)
+			}
+
+			if deletemarked(next) {
+				continue
+			}
+
+			return nextnode, true
+		}
+	}
 }
 
 // endregion
@@ -284,15 +319,24 @@ const (
 	sipHashKey2 = 0xb5940c2623a5aabd
 )
 
-func getKeyHash(v interface{}) uint64 {
-	if isnil(v) {
+func getid(v interface{}) uint64 {
+	if util.IsNil(v) {
 		panic("v cannot be nil")
 	}
 
 	if itf, ok := v.(identify.Identify); ok {
-		return itf.ID()
+		return itf.Identity()
 	}
 
+	panic("must implement Identity")
+}
+
+func getKeyHash(v interface{}) uint64 {
+	// if util.IsNil(v) {
+	// 	panic("v cannot be nil")
+	// }
+
+	// TODO: Support buildtin types
 	switch x := v.(type) {
 	case string:
 		return getStringHash(x)
@@ -320,9 +364,9 @@ func getKeyHash(v interface{}) uint64 {
 		return getUintptrHash(uintptr(x))
 	case uintptr:
 		return getUintptrHash(x)
-	default:
-		panic(fmt.Errorf("unsupported v type %T", v))
 	}
+
+	panic(fmt.Errorf("unsupported v type %T", v))
 }
 
 // Verify endianess
@@ -361,10 +405,6 @@ func deletemark(ptr unsafe.Pointer) unsafe.Pointer {
 
 func deleteunmark(ptr unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(uintptr(ptr) &^ 0x1)
-}
-
-func isnil(itf interface{}) bool {
-	return itf == nil || (reflect.ValueOf(itf).Kind() == reflect.Ptr && reflect.ValueOf(itf).IsNil())
 }
 
 // endregion
