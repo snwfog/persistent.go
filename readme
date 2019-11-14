@@ -36,9 +36,9 @@ ok  	github.com/snwfog/persistent.go/pkg/campaign	10.564s
 
 related
 
-- https://github.com/cornelk/go-benchmark
 - https://github.com/zond/gotomic
-- https://sourcegraph.com/github.com/jserv/concurrent-ll@master
+- https://github.com/jserv/concurrent-ll (C)
+- https://github.com/cornelk/hashmap (Go)
 
 links
 
@@ -47,4 +47,4 @@ links
 - https://preshing.com/20120612/an-introduction-to-lock-free-programming/
 - https://en.wikipedia.org/wiki/Non-blocking_algorithm
 - https://en.wikipedia.org/wiki/Non-blocking_linked_list
-
+- https://github.com/cornelk/go-benchmark
