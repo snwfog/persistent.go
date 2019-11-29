@@ -79,7 +79,7 @@ func TestConcurrentInsert1(t *testing.T) {
 
 	it := ll.Iterator()
 	var sum int
-	for v, ok := it.Next(); ok; v, ok = it.Next() {
+	for v, err := it.Next(); err == nil; v, err = it.Next() {
 		sum += v.Id
 	}
 
@@ -197,7 +197,7 @@ func TestConcurrentInsertDeleteN1(t *testing.T) {
 	it := ll.Iterator()
 
 	var sum int
-	for n, ok := it.Next(); ok; n, ok = it.Next() {
+	for n, err := it.Next(); err == nil; n, err = it.Next() {
 		sum += n.Id
 		if n.Id%2 == 0 {
 			t.Logf("value: %d!", n.Id)
@@ -257,7 +257,7 @@ func TestConcurrentInsertDelete1N(t *testing.T) {
 	it := ll.Iterator()
 
 	var sum int
-	for n, ok := it.Next(); ok; n, ok = it.Next() {
+	for n, err := it.Next(); err == nil; n, err = it.Next() {
 		sum += n.Id
 		if n.Id%2 == 0 {
 			t.Logf("value: %d!", n.Id)
@@ -315,7 +315,7 @@ func TestConcurrentInsertDeleteNN(t *testing.T) {
 	it := ll.Iterator()
 
 	var sum int
-	for n, ok := it.Next(); ok; n, ok = it.Next() {
+	for n, err := it.Next(); err == nil; n, err = it.Next() {
 		sum += n.Id
 		if n.Id%2 == 0 {
 			t.Logf("value: %d!", n.Id)
@@ -400,7 +400,7 @@ func TestConcurrentDelete1(t *testing.T) {
 
 	it := ll.Iterator()
 	var sum int
-	for n, ok := it.Next(); ok; n, ok = it.Next() {
+	for n, err := it.Next(); err == nil; n, err = it.Next() {
 		sum += n.Id
 	}
 

@@ -287,15 +287,15 @@ func BenchmarkItemCopyLinkedList(b *testing.B) {
 	b.ResetTimer()
 	results := make([]*Item, 0, 3*L)
 	for i := 0; i < b.N; i++ {
-		for n, ok := itA.Next(); ok; n, ok = itA.Next() {
+		for n, err := itA.Next(); err == nil; n, err = itA.Next() {
 			results = append(results, n)
 		}
 
-		for n, ok := itB.Next(); ok; n, ok = itB.Next() {
+		for n, err := itB.Next(); err == nil; n, err = itB.Next() {
 			results = append(results, n)
 		}
 
-		for n, ok := itC.Next(); ok; n, ok = itC.Next() {
+		for n, err := itC.Next(); err == nil; n, err = itC.Next() {
 			results = append(results, n)
 		}
 
@@ -360,15 +360,15 @@ func BenchmarkItemCopyParallelList(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		results := make([]*Item, 0, L*R)
 		for pb.Next() {
-			for n, ok := itA.Next(); ok; n, ok = itA.Next() {
+			for n, err := itA.Next(); err == nil; n, err = itA.Next() {
 				results = append(results, n)
 			}
 
-			for n, ok := itB.Next(); ok; n, ok = itB.Next() {
+			for n, err := itB.Next(); err == nil; n, err = itB.Next() {
 				results = append(results, n)
 			}
 
-			for n, ok := itC.Next(); ok; n, ok = itC.Next() {
+			for n, err := itC.Next(); err == nil; n, err = itC.Next() {
 				results = append(results, n)
 			}
 
@@ -478,13 +478,13 @@ func BenchmarkItemCopyParallelListWithItemInsert(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		results := make([]*Item, 0, L*R)
 		for pb.Next() {
-			for n, ok := itA.Next(); ok; n, ok = itA.Next() {
+			for n, err := itA.Next(); err == nil; n, err = itA.Next() {
 				results = append(results, n)
 			}
-			for n, ok := itB.Next(); ok; n, ok = itB.Next() {
+			for n, err := itB.Next(); err == nil; n, err = itB.Next() {
 				results = append(results, n)
 			}
-			for n, ok := itC.Next(); ok; n, ok = itC.Next() {
+			for n, err := itC.Next(); err == nil; n, err = itC.Next() {
 				results = append(results, n)
 			}
 

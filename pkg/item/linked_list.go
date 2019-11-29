@@ -18,6 +18,8 @@ import (
 )
 
 var (
+	EOL       = errors.New("end of list")
+	EMPTY     = errors.New("empty list")
 	inserterr = errors.New("insert failed")
 )
 
@@ -125,7 +127,7 @@ func (l *linkedlist) Delete(v *Item) (bool, error) {
 		}
 
 		rightnext = right.nextptr()
-		if !deletemarked(rightnext) {
+		if !isdeletemarked(rightnext) {
 			if atomic.CompareAndSwapPointer(&right.next, rightnext, deletemark(rightnext)) {
 				atomic.AddInt32(&l.len, -1)
 				break
@@ -158,9 +160,9 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 			// if current node is not logically deleting
 			// remember: node.next serve 2 purposes,
 			// 1. unmark(nextptr) -> gives next node
-			// 2. deletemarked(nextptr) -> means current
+			// 2. isdeletemarked(nextptr) -> means current
 			// node is logically removed from the linkedlist
-			if !deletemarked(nextptr) {
+			if !isdeletemarked(nextptr) {
 				left = curr
 				leftnext = (*node)(nextptr)
 			}
@@ -172,7 +174,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 
 			// if curr is not deleted, we found the right node
 			nextptr = curr.nextptr()
-			if !deletemarked(nextptr) && curr.key >= key {
+			if !isdeletemarked(nextptr) && curr.key >= key {
 				break
 			}
 		}
@@ -180,7 +182,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 		// check if left right are adjacent
 		right = curr
 		if leftnext == right {
-			if right != l.tailnode() && deletemarked(right.nextptr()) {
+			if right != l.tailnode() && isdeletemarked(right.nextptr()) {
 				// oopsie, someone just logically deleted curr node,
 				// restart
 				continue
@@ -193,7 +195,7 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(leftnext), unsafe.Pointer(right)) {
 			// oopsie, someone just logically deleted curr node,
 			// restart
-			if right != l.tailnode() && deletemarked(right.nextptr()) {
+			if right != l.tailnode() && isdeletemarked(right.nextptr()) {
 				continue
 			}
 
@@ -223,6 +225,13 @@ func (l *linkedlist) CyclicIterator() *cycliciterator {
 // endregion
 
 // region Iterator
+type Iterator interface {
+	Next() (*Item, error)
+}
+
+var _ Iterator = &iterator{}
+var _ Iterator = &cycliciterator{}
+
 type iterator struct {
 	curr unsafe.Pointer
 	list *linkedlist
@@ -235,34 +244,34 @@ func NewIterator(list *linkedlist) *iterator {
 	}
 }
 
-func (it *iterator) Next() (*Item, bool) {
-	n, ok := it.nextnode()
-	if !ok {
-		return nil, ok
+func (it *iterator) Next() (*Item, error) {
+	n, err := it.nextnode()
+	if err != nil {
+		return nil, err
 	}
 
-	return n.value(), ok
+	return n.value(), err
 }
 
-func (it *iterator) nextnode() (*node, bool) {
+func (it *iterator) nextnode() (*node, error) {
 	for {
 		curr := (*node)(it.curr)
 		if curr == it.list.tailnode() {
-			return nil, false
+			return nil, EOL
 		}
 
 		next := curr.nextptr()
-		nextnode := (*node)(next)
-		if atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), next) {
-			if nextnode == it.list.tailnode() {
-				return nil, false
-			}
-
-			if deletemarked(next) {
+		// nextnode := (*node)(next)
+		if atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), deleteunmark(next)) {
+			if curr == it.list.headnode() {
 				continue
 			}
 
-			return nextnode, true
+			if isdeletemarked(next) {
+				continue
+			}
+
+			return curr, nil
 		}
 	}
 }
@@ -282,39 +291,49 @@ func NewCyclicIterator(list *linkedlist) *cycliciterator {
 	}
 }
 
-func (it *cycliciterator) Next() (*Item, bool) {
-	n, ok := it.nextnode()
-	if !ok {
-		return nil, ok
+func (it *cycliciterator) Next() (*Item, error) {
+	n, err := it.nextnode()
+	if err != nil {
+		return nil, err
 	}
 
-	return n.value(), ok
+	return n.value(), err
 }
 
-func (it *cycliciterator) nextnode() (*node, bool) {
+func (it *cycliciterator) nextnode() (*node, error) {
 	for {
 		curr := (*node)(it.curr)
 		if curr == it.list.tailnode() {
-			return nil, false
+			// Try to swap to head
+			// We don't care if its successful or not
+			// If success:
+			// - it.curr have not been changed
+			// - next for loop run will grab the next node
+			// If fail:
+			// - some thread already swapped, we rerun to grab next
+			atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), unsafe.Pointer(it.list.headnode()))
+			continue
 		}
 
-		next := curr.nextptr()
-		nextnode := (*node)(next)
-		if atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), next) {
-			if nextnode == it.list.tailnode() {
-				head := unsafe.Pointer(it.list.headnode())
-				// Try to swap to head
-				// We don't care if its sucesssful or not
-				// If its successful, next run will grab the next node
-				// If it fails, means some thread already swapped, we rerun to grab next
-				atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), head)
-			}
+		// HACK:
+		// Because list can be modified concurrently,
+		// and can be empty, we don't want to loop forever
+		// we want to signal this edge case properly.
+		if it.list.Len() <= 0 {
+			return nil, EMPTY
+		}
 
-			if deletemarked(next) {
+		nextptr := curr.nextptr()
+		if atomic.CompareAndSwapPointer(&it.curr, unsafe.Pointer(curr), deleteunmark(nextptr)) {
+			if curr == it.list.headnode() {
 				continue
 			}
 
-			return nextnode, true
+			if isdeletemarked(nextptr) {
+				continue
+			}
+
+			return curr, nil
 		}
 	}
 }
@@ -407,7 +426,7 @@ func getUintptrHash(num uintptr) uint64 {
 	return siphash.Hash(sipHashKey1, sipHashKey2, buf)
 }
 
-func deletemarked(ptr unsafe.Pointer) bool {
+func isdeletemarked(ptr unsafe.Pointer) bool {
 	return (uintptr(ptr) & 0x1) > 0
 }
 
