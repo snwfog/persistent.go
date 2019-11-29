@@ -114,12 +114,12 @@ func (l *linkedlist) Upsert(v *Value) (bool, error) {
 }
 
 func (l *linkedlist) Delete(v *Value) (bool, error) {
-	var right *node
+	var right, left *node
 	var rightnext unsafe.Pointer
 
 	key := getid(v)
 	for {
-		_, right = l.search(key)
+		left, right = l.search(key)
 		if right == l.tailnode() || right.key != key {
 			return false, nil // not deleted cause not found
 		}
@@ -133,9 +133,10 @@ func (l *linkedlist) Delete(v *Value) (bool, error) {
 		}
 	}
 
-	// if !atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), rightnext) {
-	//   _, _ = l.search(right.key) // cleanup
-	// }
+	// Cleanup run
+	if !atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(right), rightnext) {
+	  _, _ = l.search(right.key)
+	}
 
 	return true, nil
 }
@@ -144,28 +145,34 @@ func (l *linkedlist) Delete(v *Value) (bool, error) {
 // - left and right are unmarked node
 // - right is immediate successor of left
 // - left.key < key <= right.key
+// - - remember: we do not allow duplicate on insert
 func (l *linkedlist) search(key uint64) (left, right *node) {
 	var leftnext *node
 
 	for {
 		curr := l.headnode()
-		next := curr.nextptr()
+		nextptr := curr.nextptr()
 
 		// find left and right node
 		for {
 			// if current node is not logically deleting
-			if !deletemarked(next) {
+			// remember: node.next serve 2 purposes,
+			// 1. unmark(nextptr) -> gives next node
+			// 2. deletemarked(nextptr) -> means current
+			// node is logically removed from the linkedlist
+			if !deletemarked(nextptr) {
 				left = curr
-				leftnext = (*node)(next)
+				leftnext = (*node)(nextptr)
 			}
 
-			curr = (*node)(deleteunmark(next))
+			curr = (*node)(deleteunmark(nextptr))
 			if curr == l.tailnode() {
 				break
 			}
 
-			next = curr.nextptr()
-			if !deletemarked(next) && curr.key >= key {
+			// if curr is not deleted, we found the right node
+			nextptr = curr.nextptr()
+			if !deletemarked(nextptr) && curr.key >= key {
 				break
 			}
 		}
@@ -174,13 +181,18 @@ func (l *linkedlist) search(key uint64) (left, right *node) {
 		right = curr
 		if leftnext == right {
 			if right != l.tailnode() && deletemarked(right.nextptr()) {
+				// oopsie, someone just logically deleted curr node,
+				// restart
 				continue
 			}
 
 			return left, right
 		}
 
+		// cleanup, set left.next to be right node
 		if atomic.CompareAndSwapPointer(&left.next, unsafe.Pointer(leftnext), unsafe.Pointer(right)) {
+			// oopsie, someone just logically deleted curr node,
+			// restart
 			if right != l.tailnode() && deletemarked(right.nextptr()) {
 				continue
 			}
